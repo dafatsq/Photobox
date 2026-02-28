@@ -5,6 +5,8 @@ export function CheckPaymentStatus(arg1:string):Promise<boolean>;
 
 export function GetDataDir():Promise<string>;
 
+export function GetLiveViewURL():Promise<string>;
+
 export function PrintPhoto(arg1:string):Promise<void>;
 
 export function ProcessComposite(arg1:Array<string>,arg2:string):Promise<string>;

@@ -20,7 +20,8 @@
 }
 
 .capture-video,
-.capture-frozen {
+.capture-frozen,
+.capture-liveview {
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -29,6 +30,27 @@
 
 .capture-frozen {
     animation: freeze-in 0.3s ease-out;
+}
+
+.capture-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    height: 100%;
+    color: rgba(255, 255, 255, 0.5);
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.1rem;
+}
+
+.capture-loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(139, 92, 246, 0.2);
+    border-top-color: #8b5cf6;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
 }
 
 .capture-info {

@@ -10,6 +10,10 @@ export function GetDataDir() {
   return window['go']['main']['App']['GetDataDir']();
 }
 
+export function GetLiveViewURL() {
+  return window['go']['main']['App']['GetLiveViewURL']();
+}
+
 export function PrintPhoto(arg1) {
   return window['go']['main']['App']['PrintPhoto'](arg1);
 }

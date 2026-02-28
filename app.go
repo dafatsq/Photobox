@@ -175,3 +175,9 @@ func (a *App) PrintPhoto(finalImagePath string) error {
 func (a *App) GetDataDir() string {
 	return a.dataDir
 }
+
+// GetLiveViewURL returns the live view URL from the camera driver.
+// If empty, the frontend should fall back to WebRTC for preview.
+func (a *App) GetLiveViewURL() string {
+	return a.camera.LiveViewURL()
+}

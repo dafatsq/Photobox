@@ -1,0 +1,105 @@
+.done-screen {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #0f0f14 0%, #1a1025 40%, #0f0f14 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+.done-confetti {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.confetti-piece {
+    position: absolute;
+    top: -20px;
+    border-radius: 2px;
+    opacity: 0.8;
+    animation: confetti-fall linear infinite;
+}
+
+.done-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    z-index: 2;
+}
+
+.done-icon {
+    font-size: 5rem;
+    animation: celebrate 2s ease-in-out infinite;
+}
+
+.done-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 4rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #c084fc, #818cf8, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0;
+}
+
+.done-subtitle {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.3rem;
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 300;
+    margin: 0;
+}
+
+.done-separator {
+    width: 60px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.5), transparent);
+    margin: 1rem 0;
+}
+
+.done-timer {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.35);
+    margin: 0;
+}
+
+.done-countdown {
+    color: #a78bfa;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+@keyframes confetti-fall {
+    0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateY(100vh) rotate(720deg);
+        opacity: 0;
+    }
+}
+
+@keyframes celebrate {
+
+    0%,
+    100% {
+        transform: scale(1) rotate(0deg);
+    }
+
+    25% {
+        transform: scale(1.1) rotate(-5deg);
+    }
+
+    75% {
+        transform: scale(1.1) rotate(5deg);
+    }
+}

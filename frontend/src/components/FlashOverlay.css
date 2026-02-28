@@ -1,0 +1,21 @@
+.flash-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #ffffff;
+    z-index: 200;
+    animation: flash-fade 0.4s ease-out forwards;
+    pointer-events: none;
+}
+
+@keyframes flash-fade {
+    0% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+    }
+}

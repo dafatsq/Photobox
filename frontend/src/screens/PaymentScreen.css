@@ -1,0 +1,114 @@
+.payment-screen {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #0f0f14 0%, #111827 100%);
+}
+
+.payment-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 3rem 4rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 24px;
+    backdrop-filter: blur(20px);
+}
+
+.payment-icon {
+    font-size: 3rem;
+}
+
+.payment-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    margin: 0;
+}
+
+.qris-placeholder {
+    padding: 1.5rem;
+}
+
+.qris-frame {
+    width: 220px;
+    height: 220px;
+    border: 3px solid rgba(139, 92, 246, 0.4);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 0 40px rgba(139, 92, 246, 0.15);
+}
+
+.qris-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.qris-label {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1f2937;
+    letter-spacing: 0.1em;
+}
+
+.qris-code {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    width: 120px;
+    height: 120px;
+}
+
+.qris-block {
+    background: #1f2937;
+    border-radius: 2px;
+}
+
+.payment-hint {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.4);
+    margin: 0;
+}
+
+.payment-spinner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: rgba(139, 92, 246, 0.8);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+}
+
+.spinner-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #8b5cf6;
+    animation: dot-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dot-pulse {
+
+    0%,
+    100% {
+        transform: scale(0.8);
+        opacity: 0.5;
+    }
+
+    50% {
+        transform: scale(1.2);
+        opacity: 1;
+    }
+}

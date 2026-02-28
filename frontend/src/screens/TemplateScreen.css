@@ -1,0 +1,123 @@
+.template-screen {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3rem;
+    background: linear-gradient(135deg, #0f0f14 0%, #1a1025 100%);
+}
+
+.template-header {
+    text-align: center;
+}
+
+.template-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    margin: 0 0 0.5rem 0;
+}
+
+.template-subtitle {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.4);
+    margin: 0;
+}
+
+.template-grid {
+    display: flex;
+    gap: 2.5rem;
+}
+
+.template-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 2.5rem 3rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 240px;
+    color: inherit;
+    font: inherit;
+}
+
+.template-card:hover {
+    background: rgba(139, 92, 246, 0.08);
+    border-color: rgba(139, 92, 246, 0.4);
+    transform: translateY(-6px);
+    box-shadow: 0 20px 60px rgba(139, 92, 246, 0.15);
+}
+
+.template-card-icon {
+    font-size: 2.5rem;
+}
+
+.template-card-preview {
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+}
+
+.template-preview-layout {
+    display: flex;
+    gap: 3px;
+}
+
+.template-preview-layout.strip_2x6 {
+    flex-direction: column;
+    width: 50px;
+}
+
+.template-preview-layout.strip_2x6 .preview-cell {
+    width: 50px;
+    height: 28px;
+    background: rgba(139, 92, 246, 0.3);
+    border-radius: 3px;
+}
+
+.template-preview-layout.postcard_4x6 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 90px;
+}
+
+.template-preview-layout.postcard_4x6 .preview-cell {
+    width: 42px;
+    height: 32px;
+    background: rgba(139, 92, 246, 0.3);
+    border-radius: 3px;
+}
+
+.template-card-label {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    margin: 0;
+}
+
+.template-card-size {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    color: #8b5cf6;
+    background: rgba(139, 92, 246, 0.1);
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-weight: 500;
+}
+
+.template-card-desc {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.35);
+    margin: 0;
+    text-align: center;
+}

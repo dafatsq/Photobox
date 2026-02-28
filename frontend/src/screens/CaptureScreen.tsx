@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../store/appStore';
-import { TriggerCapture, GetLiveViewURL } from '../../wailsjs/go/main/App';
-import CountdownTimer from '../components/CountdownTimer';
+import { TriggerCapture, GetLiveViewURL, SaveWebRTCImage } from '../../wailsjs/go/main/App';
 import FlashOverlay from '../components/FlashOverlay';
 import './CaptureScreen.css';
 
@@ -23,7 +22,6 @@ const CaptureScreen: React.FC = () => {
 
     const [previewMode, setPreviewMode] = useState<PreviewMode>('loading');
     const [liveViewURL, setLiveViewURL] = useState('');
-    const [showCountdown, setShowCountdown] = useState(false);
     const [flashTrigger, setFlashTrigger] = useState(false);
     const [frozen, setFrozen] = useState(false);
     const [frozenImage, setFrozenImage] = useState<string | null>(null);
@@ -104,16 +102,6 @@ const CaptureScreen: React.FC = () => {
         };
     }, [previewMode, liveViewURL, frozen]);
 
-    // Start countdown when ready and not frozen
-    useEffect(() => {
-        if (ready && !frozen && !capturing && currentSequence < totalShots) {
-            const timer = setTimeout(() => {
-                setShowCountdown(true);
-            }, 800);
-            return () => clearTimeout(timer);
-        }
-    }, [ready, frozen, capturing, currentSequence, totalShots]);
-
     // Freeze the current frame
     const freezeFrame = useCallback(() => {
         if (previewMode === 'dcc' && imgRef.current) {
@@ -139,15 +127,36 @@ const CaptureScreen: React.FC = () => {
         setFrozen(true);
     }, [previewMode]);
 
-    // Handle countdown complete → capture
-    const handleCountdownComplete = useCallback(async () => {
-        setShowCountdown(false);
+    // Handle capture button press
+    const handleCapture = useCallback(async () => {
+        if (capturing || !ready) return;
+
         setCapturing(true);
         setFlashTrigger(true);
         freezeFrame();
 
         try {
-            const imagePath = await TriggerCapture(sessionId, currentSequence);
+            let imagePath = '';
+
+            if (previewMode === 'webrtc') {
+                const canvas = document.createElement('canvas');
+                if (videoRef.current) {
+                    canvas.width = videoRef.current.videoWidth;
+                    canvas.height = videoRef.current.videoHeight;
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) {
+                        ctx.drawImage(videoRef.current, 0, 0);
+                        const base64Data = canvas.toDataURL('image/jpeg', 0.9);
+                        imagePath = await SaveWebRTCImage(sessionId, currentSequence, base64Data);
+                    }
+                }
+                if (!imagePath) {
+                    throw new Error("Failed to capture WebRTC frame");
+                }
+            } else {
+                imagePath = await TriggerCapture(sessionId, currentSequence);
+            }
+
             addCapturedImage(imagePath);
 
             // Wait a moment to show frozen frame, then proceed
@@ -162,7 +171,7 @@ const CaptureScreen: React.FC = () => {
             console.error('Capture failed:', err);
             goToError('Camera capture failed. Please contact staff.');
         }
-    }, [sessionId, currentSequence, addCapturedImage, incrementSequence, freezeFrame, goToError]);
+    }, [previewMode, sessionId, currentSequence, addCapturedImage, incrementSequence, freezeFrame, goToError, capturing, ready]);
 
     // Check if all shots are done
     useEffect(() => {
@@ -224,9 +233,12 @@ const CaptureScreen: React.FC = () => {
                 </div>
             </div>
 
-            {showCountdown && (
-                <CountdownTimer seconds={3} onComplete={handleCountdownComplete} />
+            {ready && !frozen && !capturing && currentSequence < totalShots && (
+                <button className="capture-button" onClick={handleCapture}>
+                    <div className="capture-button-inner" />
+                </button>
             )}
+
             <FlashOverlay trigger={flashTrigger} />
         </div>
     );

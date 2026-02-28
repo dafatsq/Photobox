@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"os"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -12,6 +13,9 @@ import (
 var assets embed.FS
 
 func main() {
+	// Enable WebView2 camera/media access without permission prompts
+	os.Setenv("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-media-stream --use-fake-ui-for-media-stream")
+
 	// Create an instance of the app with platform-specific hardware drivers
 	app := NewPlatformApp()
 

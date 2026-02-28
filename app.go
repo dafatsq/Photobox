@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"image"
 	"image/draw"
@@ -71,6 +72,37 @@ func (a *App) TriggerCapture(sessionID string, sequence int) (string, error) {
 
 	if err := a.camera.Capture(filename); err != nil {
 		return "", fmt.Errorf("camera capture failed: %w", err)
+	}
+
+	return filename, nil
+}
+
+// SaveWebRTCImage saves a base64 encoded image from the frontend's WebRTC capture.
+func (a *App) SaveWebRTCImage(sessionID string, sequence int, base64Data string) (string, error) {
+	if sessionID == "" {
+		return "", fmt.Errorf("session ID cannot be empty")
+	}
+
+	// Remove data URI prefix if present
+	if idx := strings.Index(base64Data, ","); idx != -1 {
+		base64Data = base64Data[idx+1:]
+	}
+
+	data, err := base64.StdEncoding.DecodeString(base64Data)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode base64 image: %w", err)
+	}
+
+	// Create session directory
+	sessionDir := filepath.Join(a.dataDir, "sessions", sessionID)
+	if err := os.MkdirAll(sessionDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create session directory: %w", err)
+	}
+
+	filename := filepath.Join(sessionDir, fmt.Sprintf("capture_%d_%d.jpg", sequence, time.Now().Unix()))
+
+	if err := os.WriteFile(filename, data, 0644); err != nil {
+		return "", fmt.Errorf("failed to save WebRTC capture: %w", err)
 	}
 
 	return filename, nil

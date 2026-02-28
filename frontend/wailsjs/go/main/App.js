@@ -22,6 +22,10 @@ export function ProcessComposite(arg1, arg2) {
   return window['go']['main']['App']['ProcessComposite'](arg1, arg2);
 }
 
+export function SaveWebRTCImage(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveWebRTCImage'](arg1, arg2, arg3);
+}
+
 export function TriggerCapture(arg1, arg2) {
   return window['go']['main']['App']['TriggerCapture'](arg1, arg2);
 }

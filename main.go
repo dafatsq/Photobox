@@ -24,7 +24,7 @@ func main() {
 		Title:             "Photobox",
 		Width:             1024,
 		Height:            768,
-		DisableResize:     false,
+		DisableResize:     true,
 		Fullscreen:        false,
 		Frameless:         false,
 		StartHidden:       false,
@@ -34,8 +34,7 @@ func main() {
 			Assets: assets,
 		},
 		OnStartup:        app.startup,
-		WindowStartState: options.Normal,
-		Debug:            options.Debug{OpenInspectorOnStartup: true}, // Force open DevTools
+		WindowStartState: options.Fullscreen,
 		Bind: []interface{}{
 			app,
 		},

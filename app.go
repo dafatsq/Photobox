@@ -284,6 +284,20 @@ func (a *App) GetDataDir() string {
 	return a.dataDir
 }
 
+// StartLiveView activates the camera's live view mode via digiCamControl.
+// Call this when the CaptureScreen mounts so the camera is only in live view when needed.
+func (a *App) StartLiveView() error {
+	fmt.Println("[APP] StartLiveView called")
+	return a.camera.StartLiveView()
+}
+
+// StopLiveView deactivates the camera's live view mode via digiCamControl.
+// Call this when leaving the CaptureScreen to let the camera cool down.
+func (a *App) StopLiveView() error {
+	fmt.Println("[APP] StopLiveView called")
+	return a.camera.StopLiveView()
+}
+
 // GetLiveViewURL returns the live view URL from the camera driver.
 // If empty, the frontend should fall back to WebRTC for preview.
 func (a *App) GetLiveViewURL() string {

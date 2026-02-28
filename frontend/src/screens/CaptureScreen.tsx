@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../store/appStore';
-import { TriggerCapture, GetLiveViewURL, SaveWebRTCImage } from '../../wailsjs/go/main/App';
+import { TriggerCapture, GetLiveViewURL, SaveWebRTCImage, StartLiveView, StopLiveView } from '../../wailsjs/go/main/App';
 import FlashOverlay from '../components/FlashOverlay';
 import './CaptureScreen.css';
 
@@ -19,6 +19,7 @@ const CaptureScreen: React.FC = () => {
     const imgRef = useRef<HTMLImageElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const liveViewActiveRef = useRef(false);
 
     const [previewMode, setPreviewMode] = useState<PreviewMode>('loading');
     const [liveViewURL, setLiveViewURL] = useState('');
@@ -32,21 +33,31 @@ const CaptureScreen: React.FC = () => {
     useEffect(() => {
         let cancelled = false;
 
+        const stopLiveViewIfActive = async () => {
+            if (liveViewActiveRef.current) {
+                liveViewActiveRef.current = false;
+                try { await StopLiveView(); } catch { /* best effort */ }
+            }
+        };
+
         const init = async () => {
             try {
+                // Try to start DCC live view first
+                await StartLiveView();
                 const url = await GetLiveViewURL();
                 if (!cancelled && url) {
-                    // digiCamControl mode — poll JPEG frames
+                    liveViewActiveRef.current = true;
                     setLiveViewURL(url);
                     setPreviewMode('dcc');
                     setReady(true);
                 } else if (!cancelled) {
-                    // Fallback to WebRTC (webcam/capture card)
+                    // DCC not available — fall back to WebRTC
                     setPreviewMode('webrtc');
                     startWebRTC();
                 }
             } catch {
                 if (!cancelled) {
+                    // DCC not reachable — fall back to WebRTC
                     setPreviewMode('webrtc');
                     startWebRTC();
                 }
@@ -74,6 +85,7 @@ const CaptureScreen: React.FC = () => {
 
         return () => {
             cancelled = true;
+            stopLiveViewIfActive();
             if (streamRef.current) {
                 streamRef.current.getTracks().forEach((t) => t.stop());
             }
@@ -179,12 +191,17 @@ const CaptureScreen: React.FC = () => {
     // Check if all shots are done
     useEffect(() => {
         if (currentSequence >= totalShots && currentSequence > 0) {
-            const timer = setTimeout(() => {
+            const timer = setTimeout(async () => {
                 if (streamRef.current) {
                     streamRef.current.getTracks().forEach((t) => t.stop());
                 }
                 if (pollingRef.current) {
                     clearInterval(pollingRef.current);
+                }
+                // Stop live view before leaving so the camera exits live view mode
+                if (liveViewActiveRef.current) {
+                    liveViewActiveRef.current = false;
+                    try { await StopLiveView(); } catch { /* best effort */ }
                 }
                 useAppStore.getState().goToFrame();
             }, 500);

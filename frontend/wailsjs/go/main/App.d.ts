@@ -15,4 +15,8 @@ export function SaveWebRTCImage(arg1:string,arg2:number,arg3:string):Promise<str
 
 export function SendEmail(arg1:string,arg2:string):Promise<void>;
 
+export function StartLiveView():Promise<void>;
+
+export function StopLiveView():Promise<void>;
+
 export function TriggerCapture(arg1:string,arg2:number):Promise<string>;

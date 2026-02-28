@@ -149,3 +149,35 @@ func (w *WinCamera) LiveViewURL() string {
 	resp.Body.Close()
 	return dccBaseURL + "/liveviewwebcam.jpg"
 }
+
+// StartLiveView tells digiCamControl to open its Live View window,
+// then waits briefly for the JPEG stream to become available.
+func (w *WinCamera) StartLiveView() error {
+	resp, err := w.client.Get(dccBaseURL + "/?CMD=LiveViewWnd_Show")
+	if err != nil {
+		return fmt.Errorf("digiCamControl StartLiveView request failed: %w", err)
+	}
+	io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("digiCamControl StartLiveView failed (HTTP %d)", resp.StatusCode)
+	}
+	// Give DCC ~1.2 s to spin up the live view feed before the frontend starts polling
+	time.Sleep(1200 * time.Millisecond)
+	return nil
+}
+
+// StopLiveView tells digiCamControl to close its Live View window,
+// returning the camera to normal standby (prevents sensor overheating).
+func (w *WinCamera) StopLiveView() error {
+	resp, err := w.client.Get(dccBaseURL + "/?CMD=LiveViewWnd_Hide")
+	if err != nil {
+		return fmt.Errorf("digiCamControl StopLiveView request failed: %w", err)
+	}
+	io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("digiCamControl StopLiveView failed (HTTP %d)", resp.StatusCode)
+	}
+	return nil
+}

@@ -19,3 +19,9 @@ func (m *MacCamera) Capture(filename string) error {
 func (m *MacCamera) LiveViewURL() string {
 	return ""
 }
+
+// StartLiveView is a no-op on macOS (WebRTC handles preview).
+func (m *MacCamera) StartLiveView() error { return nil }
+
+// StopLiveView is a no-op on macOS.
+func (m *MacCamera) StopLiveView() error { return nil }

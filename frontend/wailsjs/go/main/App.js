@@ -30,6 +30,14 @@ export function SendEmail(arg1, arg2) {
   return window['go']['main']['App']['SendEmail'](arg1, arg2);
 }
 
+export function StartLiveView() {
+  return window['go']['main']['App']['StartLiveView']();
+}
+
+export function StopLiveView() {
+  return window['go']['main']['App']['StopLiveView']();
+}
+
 export function TriggerCapture(arg1, arg2) {
   return window['go']['main']['App']['TriggerCapture'](arg1, arg2);
 }

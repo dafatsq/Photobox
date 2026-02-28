@@ -9,6 +9,14 @@ type CameraDriver interface {
 	// LiveViewURL returns the URL for the live view JPEG stream.
 	// Returns empty string if live view is not available (fallback to WebRTC).
 	LiveViewURL() string
+
+	// StartLiveView activates the camera's live view mode.
+	// Should be called when the capture screen becomes visible.
+	StartLiveView() error
+
+	// StopLiveView deactivates the camera's live view mode.
+	// Should be called when leaving the capture screen to prevent sensor overheating.
+	StopLiveView() error
 }
 
 // PrinterDriver defines the interface for printer hardware control.

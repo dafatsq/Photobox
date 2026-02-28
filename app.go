@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"photobox/hardware"
+
+	xdraw "golang.org/x/image/draw"
 )
 
 // App struct holds the application state and hardware drivers.
@@ -148,6 +150,36 @@ func (a *App) ProcessComposite(images []string, templateID string, frameID strin
 	var composite *image.RGBA
 	compW, compH := 0, 0
 
+	// Helper for center cropping an image to match a target aspect ratio
+	centerCrop := func(bounds image.Rectangle, targetW, targetH int) image.Rectangle {
+		srcW := bounds.Dx()
+		srcH := bounds.Dy()
+
+		srcRatio := float64(srcW) / float64(srcH)
+		targetRatio := float64(targetW) / float64(targetH)
+
+		var cropW, cropH int
+		if srcRatio > targetRatio {
+			// Source is relatively wider. Crop left/right.
+			cropH = srcH
+			cropW = int(float64(srcH) * targetRatio)
+		} else {
+			// Source is relatively taller. Crop top/bottom.
+			cropW = srcW
+			cropH = int(float64(srcW) / targetRatio)
+		}
+
+		xOffset := (srcW - cropW) / 2
+		yOffset := (srcH - cropH) / 2
+
+		return image.Rect(
+			bounds.Min.X+xOffset,
+			bounds.Min.Y+yOffset,
+			bounds.Min.X+xOffset+cropW,
+			bounds.Min.Y+yOffset+cropH,
+		)
+	}
+
 	switch templateID {
 	case "strip_2x6":
 		// Vertical strip: 2 inches wide, 6 inches tall at 300DPI = 600x1800px
@@ -159,7 +191,8 @@ func (a *App) ProcessComposite(images []string, templateID string, frameID strin
 
 		for i, src := range srcImages {
 			destRect := image.Rect(0, i*photoH, photoW, (i+1)*photoH)
-			draw.Draw(composite, destRect, src, src.Bounds().Min, draw.Src)
+			cropRect := centerCrop(src.Bounds(), photoW, photoH)
+			xdraw.CatmullRom.Scale(composite, destRect, src, cropRect, draw.Src, nil)
 		}
 
 	case "postcard_4x6":
@@ -174,7 +207,8 @@ func (a *App) ProcessComposite(images []string, templateID string, frameID strin
 			col := i % 2
 			row := i / 2
 			destRect := image.Rect(col*photoW, row*photoH, (col+1)*photoW, (row+1)*photoH)
-			draw.Draw(composite, destRect, src, src.Bounds().Min, draw.Src)
+			cropRect := centerCrop(src.Bounds(), photoW, photoH)
+			xdraw.CatmullRom.Scale(composite, destRect, src, cropRect, draw.Src, nil)
 		}
 
 	default:

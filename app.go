@@ -58,6 +58,7 @@ func (a *App) CheckPaymentStatus(trxID string) (bool, error) {
 // TriggerCapture commands the camera to take a photo and returns
 // the path to the captured image file.
 func (a *App) TriggerCapture(sessionID string, sequence int) (string, error) {
+	fmt.Println("[APP] TriggerCapture called. Session:", sessionID, "Seq:", sequence)
 	if sessionID == "" {
 		return "", fmt.Errorf("session ID cannot be empty")
 	}
@@ -65,15 +66,19 @@ func (a *App) TriggerCapture(sessionID string, sequence int) (string, error) {
 	// Create session directory
 	sessionDir := filepath.Join(a.dataDir, "sessions", sessionID)
 	if err := os.MkdirAll(sessionDir, 0755); err != nil {
+		fmt.Println("[APP] TriggerCapture err create dir:", err)
 		return "", fmt.Errorf("failed to create session directory: %w", err)
 	}
 
 	filename := filepath.Join(sessionDir, fmt.Sprintf("capture_%d_%d.jpg", sequence, time.Now().Unix()))
+	fmt.Println("[APP] Target filename:", filename)
 
 	if err := a.camera.Capture(filename); err != nil {
+		fmt.Println("[APP] TriggerCapture camera.Capture err:", err)
 		return "", fmt.Errorf("camera capture failed: %w", err)
 	}
 
+	fmt.Println("[APP] TriggerCapture success. Returning:", filename)
 	return filename, nil
 }
 

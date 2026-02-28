@@ -21,15 +21,21 @@ func main() {
 
 	// Create application with kiosk-oriented options
 	err := wails.Run(&options.App{
-		Title:     "Photobox",
-		Width:     1024,
-		Height:    768,
-		Frameless: true,
+		Title:             "Photobox",
+		Width:             1024,
+		Height:            768,
+		DisableResize:     false,
+		Fullscreen:        false,
+		Frameless:         false,
+		StartHidden:       false,
+		HideWindowOnClose: false,
+		BackgroundColour:  &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour: &options.RGBA{R: 15, G: 15, B: 20, A: 1},
 		OnStartup:        app.startup,
+		WindowStartState: options.Normal,
+		Debug:            options.Debug{OpenInspectorOnStartup: true}, // Force open DevTools
 		Bind: []interface{}{
 			app,
 		},

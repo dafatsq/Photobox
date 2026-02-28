@@ -105,15 +105,9 @@ const CaptureScreen: React.FC = () => {
     // Freeze the current frame
     const freezeFrame = useCallback(() => {
         if (previewMode === 'dcc' && imgRef.current) {
-            // For polled image mode, capture current img src as frozen image
-            const canvas = document.createElement('canvas');
-            canvas.width = imgRef.current.naturalWidth || 960;
-            canvas.height = imgRef.current.naturalHeight || 640;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-                ctx.drawImage(imgRef.current, 0, 0);
-                setFrozenImage(canvas.toDataURL('image/jpeg'));
-            }
+            // For polled image mode, just use the current src URL as the frozen image
+            // This avoids cross-origin tainted canvas errors
+            setFrozenImage(imgRef.current.src);
         } else if (previewMode === 'webrtc' && videoRef.current) {
             const canvas = document.createElement('canvas');
             canvas.width = videoRef.current.videoWidth;
@@ -129,6 +123,7 @@ const CaptureScreen: React.FC = () => {
 
     // Handle capture button press
     const handleCapture = useCallback(async () => {
+        console.log('[Capture] Button pressed. Ready:', ready, 'Capturing:', capturing, 'Sequence:', currentSequence);
         if (capturing || !ready) return;
 
         setCapturing(true);
@@ -137,6 +132,7 @@ const CaptureScreen: React.FC = () => {
 
         try {
             let imagePath = '';
+            console.log('[Capture] Mode:', previewMode);
 
             if (previewMode === 'webrtc') {
                 const canvas = document.createElement('canvas');
@@ -147,20 +143,26 @@ const CaptureScreen: React.FC = () => {
                     if (ctx) {
                         ctx.drawImage(videoRef.current, 0, 0);
                         const base64Data = canvas.toDataURL('image/jpeg', 0.9);
+                        console.log('[Capture] Saving WebRTC image...');
                         imagePath = await SaveWebRTCImage(sessionId, currentSequence, base64Data);
+                        console.log('[Capture] WebRTC image saved to:', imagePath);
                     }
                 }
                 if (!imagePath) {
                     throw new Error("Failed to capture WebRTC frame");
                 }
             } else {
+                console.log('[Capture] Triggering dcc capture via Go...');
                 imagePath = await TriggerCapture(sessionId, currentSequence);
+                console.log('[Capture] dcc image captured to:', imagePath);
             }
 
+            console.log('[Capture] Adding to app store...');
             addCapturedImage(imagePath);
 
             // Wait a moment to show frozen frame, then proceed
             setTimeout(() => {
+                console.log('[Capture] Resetting UI for next shot');
                 setFlashTrigger(false);
                 setFrozen(false);
                 setFrozenImage(null);
@@ -168,10 +170,11 @@ const CaptureScreen: React.FC = () => {
                 incrementSequence();
             }, 1500);
         } catch (err) {
-            console.error('Capture failed:', err);
+            console.error('[Capture] FAILED:', err);
             goToError('Camera capture failed. Please contact staff.');
         }
     }, [previewMode, sessionId, currentSequence, addCapturedImage, incrementSequence, freezeFrame, goToError, capturing, ready]);
+
 
     // Check if all shots are done
     useEffect(() => {

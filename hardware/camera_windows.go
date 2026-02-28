@@ -29,25 +29,57 @@ func NewWinCamera() *WinCamera {
 	}
 }
 
-// Capture triggers a capture via digiCamControl's HTTP API and downloads the result.
+// Capture triggers a capture via digiCamControl's scripting HTTP API and downloads the result.
 func (w *WinCamera) Capture(filename string) error {
-	// Send capture command via dcc web server API
-	resp, err := w.client.Get(dccBaseURL + "/?CMD=Capture")
+	// Get the current file count so we can detect the new image after capture
+	countBefore, err0 := w.getFileCount()
+	println("[DCC] File count before capture:", countBefore, "err:", fmt.Sprint(err0))
+
+	// Send capture command via dcc's scripting API (slc=capture)
+	println("[DCC] Sending slc=capture request...")
+	resp, err := w.client.Get(dccBaseURL + "/?slc=capture")
 	if err != nil {
+		println("[DCC] slc=capture request error:", err.Error())
 		return fmt.Errorf("digiCamControl capture request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	println("[DCC] slc=capture status:", resp.StatusCode, "body:", string(body))
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("digiCamControl capture failed (HTTP %d): %s", resp.StatusCode, string(body))
 	}
 
-	// Wait for the camera to process and write the file
-	time.Sleep(3 * time.Second)
+	// Poll until a new image appears in the file list (up to 15s)
+	println("[DCC] Polling for new image...")
+	deadline := time.Now().Add(15 * time.Second)
+	for time.Now().Before(deadline) {
+		count, err := w.getFileCount()
+		println("[DCC] File count:", count, "err:", fmt.Sprint(err))
+		if err == nil && count > countBefore {
+			println("[DCC] New image detected! count:", count)
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
 
 	// Download the last captured image from digiCamControl
+	println("[DCC] Downloading last capture to:", filename)
 	return w.downloadLastCapture(filename)
+}
+
+// getFileCount returns the number of files in dcc's current session.
+func (w *WinCamera) getFileCount() (int, error) {
+	resp, err := w.client.Get(dccBaseURL + "/filelist.json")
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	var files []dccFileItem
+	if err := json.NewDecoder(resp.Body).Decode(&files); err != nil {
+		return 0, err
+	}
+	return len(files), nil
 }
 
 // dccFileItem represents an entry in dcc's /filelist.json response.
@@ -78,6 +110,7 @@ func (w *WinCamera) downloadLastCapture(filename string) error {
 
 	// Get the last (most recent) image
 	lastFile := files[len(files)-1]
+	println("[DCC] Downloading:", dccBaseURL+lastFile.Original)
 
 	// Download the original image via /image/ endpoint
 	imgResp, err := w.client.Get(dccBaseURL + lastFile.Original)
@@ -85,6 +118,7 @@ func (w *WinCamera) downloadLastCapture(filename string) error {
 		return fmt.Errorf("failed to download capture: %w", err)
 	}
 	defer imgResp.Body.Close()
+	println("[DCC] Download status:", imgResp.StatusCode)
 
 	out, err := os.Create(filename)
 	if err != nil {
@@ -92,7 +126,9 @@ func (w *WinCamera) downloadLastCapture(filename string) error {
 	}
 	defer out.Close()
 
-	if _, err := io.Copy(out, imgResp.Body); err != nil {
+	n, err := io.Copy(out, imgResp.Body)
+	println("[DCC] Bytes written:", n)
+	if err != nil {
 		return fmt.Errorf("failed to write capture data: %w", err)
 	}
 

@@ -8,8 +8,9 @@ type ProcessingStage = 'compositing' | 'printing' | 'qr' | 'complete';
 const ProcessingScreen: React.FC = () => {
     const capturedImages = useAppStore((s) => s.capturedImages);
     const selectedTemplate = useAppStore((s) => s.selectedTemplate);
+    const selectedFrame = useAppStore((s) => s.selectedFrame);
     const setCompositeImage = useAppStore((s) => s.setCompositeImage);
-    const goToDone = useAppStore((s) => s.goToDone);
+    const goToShare = useAppStore((s) => s.goToShare);
     const goToError = useAppStore((s) => s.goToError);
 
     const [stage, setStage] = useState<ProcessingStage>('compositing');
@@ -26,41 +27,26 @@ const ProcessingScreen: React.FC = () => {
 
                 const compositePath = await ProcessComposite(
                     capturedImages,
-                    selectedTemplate || 'strip_2x6'
+                    selectedTemplate || 'strip_2x6',
+                    selectedFrame || 'none'
                 );
 
                 if (cancelled) return;
                 setCompositeImage(compositePath);
-                setProgress(50);
-
-                // Stage 2: Print
-                setStage('printing');
                 setProgress(60);
 
-                await PrintPhoto(compositePath);
-
-                if (cancelled) return;
-                setProgress(80);
-
-                // Stage 3: QR code (simulated)
-                setStage('qr');
-                setProgress(90);
-
-                // Wait to show QR
-                await new Promise((resolve) => setTimeout(resolve, 3000));
-
-                if (cancelled) return;
+                // Stage 2: Finalizing (skip printing to avoid crash)
                 setStage('complete');
                 setProgress(100);
 
-                // Transition to done
+                // Transition to share screen
                 setTimeout(() => {
-                    if (!cancelled) goToDone();
-                }, 1000);
+                    if (!cancelled) goToShare();
+                }, 1500);
             } catch (err) {
                 console.error('Processing error:', err);
                 if (!cancelled) {
-                    goToError('Failed to process or print your photos. Please contact staff.');
+                    goToError('Failed to process your photos. Please contact staff.');
                 }
             }
         };
@@ -70,7 +56,8 @@ const ProcessingScreen: React.FC = () => {
         return () => {
             cancelled = true;
         };
-    }, [capturedImages, selectedTemplate, setCompositeImage, goToDone, goToError]);
+    }, [capturedImages, selectedTemplate, selectedFrame, setCompositeImage, goToShare, goToError]);
+
 
     return (
         <div className="processing-screen">

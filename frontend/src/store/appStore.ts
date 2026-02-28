@@ -5,7 +5,9 @@ export type AppState =
   | 'payment'
   | 'template'
   | 'capture'
+  | 'frame'
   | 'processing'
+  | 'share'
   | 'done'
   | 'error';
 
@@ -18,6 +20,7 @@ interface AppStore {
   // Session data
   sessionId: string;
   selectedTemplate: TemplateType | null;
+  selectedFrame: string | null;
   capturedImages: string[];
   compositeImagePath: string | null;
   currentSequence: number;
@@ -32,8 +35,11 @@ interface AppStore {
   selectTemplate: (template: TemplateType) => void;
   goToCapture: () => void;
   addCapturedImage: (path: string) => void;
+  goToFrame: () => void;
+  selectFrame: (frameId: string) => void;
   goToProcessing: () => void;
   setCompositeImage: (path: string) => void;
+  goToShare: () => void;
   goToDone: () => void;
   goToError: (message: string) => void;
   reset: () => void;
@@ -59,6 +65,7 @@ export const useAppStore = create<AppStore>((set) => ({
   currentState: 'attract',
   sessionId: '',
   selectedTemplate: null,
+  selectedFrame: null,
   capturedImages: [],
   compositeImagePath: null,
   currentSequence: 0,
@@ -97,11 +104,20 @@ export const useAppStore = create<AppStore>((set) => ({
       currentSequence: state.currentSequence + 1,
     })),
 
+  goToFrame: () =>
+    set({ currentState: 'frame' }),
+
+  selectFrame: (frameId: string) =>
+    set({ selectedFrame: frameId }),
+
   goToProcessing: () =>
     set({ currentState: 'processing' }),
 
   setCompositeImage: (path: string) =>
     set({ compositeImagePath: path }),
+
+  goToShare: () =>
+    set({ currentState: 'share' }),
 
   goToDone: () =>
     set({ currentState: 'done' }),
@@ -114,6 +130,7 @@ export const useAppStore = create<AppStore>((set) => ({
       currentState: 'attract',
       sessionId: '',
       selectedTemplate: null,
+      selectedFrame: null,
       capturedImages: [],
       compositeImagePath: null,
       currentSequence: 0,

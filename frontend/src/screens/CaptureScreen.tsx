@@ -186,11 +186,12 @@ const CaptureScreen: React.FC = () => {
                 if (pollingRef.current) {
                     clearInterval(pollingRef.current);
                 }
-                goToProcessing();
+                useAppStore.getState().goToFrame();
             }, 500);
             return () => clearTimeout(timer);
         }
-    }, [currentSequence, totalShots, goToProcessing]);
+    }, [currentSequence, totalShots]);
+
 
     return (
         <div className="capture-screen">

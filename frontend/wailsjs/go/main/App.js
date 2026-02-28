@@ -18,12 +18,16 @@ export function PrintPhoto(arg1) {
   return window['go']['main']['App']['PrintPhoto'](arg1);
 }
 
-export function ProcessComposite(arg1, arg2) {
-  return window['go']['main']['App']['ProcessComposite'](arg1, arg2);
+export function ProcessComposite(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ProcessComposite'](arg1, arg2, arg3);
 }
 
 export function SaveWebRTCImage(arg1, arg2, arg3) {
   return window['go']['main']['App']['SaveWebRTCImage'](arg1, arg2, arg3);
+}
+
+export function SendEmail(arg1, arg2) {
+  return window['go']['main']['App']['SendEmail'](arg1, arg2);
 }
 
 export function TriggerCapture(arg1, arg2) {

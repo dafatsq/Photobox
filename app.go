@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"image"
+	"image/color"
 	"image/draw"
 	"image/jpeg"
 	"image/png"
@@ -113,15 +114,15 @@ func (a *App) SaveWebRTCImage(sessionID string, sequence int, base64Data string)
 	return filename, nil
 }
 
-// ProcessComposite combines captured images into a composite frame based on templateID.
+// ProcessComposite combines captured images into a composite frame based on templateID and frameID.
 // Supported templates: "strip_2x6" (4 photos in a vertical strip), "postcard_4x6" (4 photos in a grid).
-func (a *App) ProcessComposite(images []string, templateID string) (string, error) {
+func (a *App) ProcessComposite(images []string, templateID string, frameID string) (string, error) {
 	if len(images) == 0 {
 		return "", fmt.Errorf("no images provided")
 	}
 
 	sessionDir := filepath.Dir(images[0])
-	outputPath := filepath.Join(sessionDir, fmt.Sprintf("composite_%s_%d.png", templateID, time.Now().Unix()))
+	outputPath := filepath.Join(sessionDir, fmt.Sprintf("composite_%s_%s_%d.png", templateID, frameID, time.Now().Unix()))
 
 	// Load all source images
 	srcImages := make([]image.Image, 0, len(images))
@@ -145,6 +146,7 @@ func (a *App) ProcessComposite(images []string, templateID string) (string, erro
 	}
 
 	var composite *image.RGBA
+	compW, compH := 0, 0
 
 	switch templateID {
 	case "strip_2x6":
@@ -152,7 +154,8 @@ func (a *App) ProcessComposite(images []string, templateID string) (string, erro
 		// Stack photos vertically
 		photoW := 600
 		photoH := 1800 / len(srcImages)
-		composite = image.NewRGBA(image.Rect(0, 0, photoW, 1800))
+		compW, compH = 600, 1800
+		composite = image.NewRGBA(image.Rect(0, 0, compW, compH))
 
 		for i, src := range srcImages {
 			destRect := image.Rect(0, i*photoH, photoW, (i+1)*photoH)
@@ -164,7 +167,8 @@ func (a *App) ProcessComposite(images []string, templateID string) (string, erro
 		// 2x2 grid of photos
 		photoW := 600
 		photoH := 900
-		composite = image.NewRGBA(image.Rect(0, 0, 1200, 1800))
+		compW, compH = 1200, 1800
+		composite = image.NewRGBA(image.Rect(0, 0, compW, compH))
 
 		for i, src := range srcImages {
 			col := i % 2
@@ -175,6 +179,31 @@ func (a *App) ProcessComposite(images []string, templateID string) (string, erro
 
 	default:
 		return "", fmt.Errorf("unknown template: %s", templateID)
+	}
+
+	// Apply Frame (Border)
+	if frameID != "none" {
+		var r, g, b uint8 = 255, 255, 255 // Default white
+		switch frameID {
+		case "classic_black":
+			r, g, b = 26, 26, 26
+		case "neon_pink":
+			r, g, b = 255, 42, 109
+		case "neon_blue":
+			r, g, b = 5, 217, 232
+		case "vintage_gold":
+			r, g, b = 212, 175, 55
+		}
+
+		borderSize := 40 // 40px border
+		for y := 0; y < compH; y++ {
+			for x := 0; x < compW; x++ {
+				// If near the edge, draw border color
+				if x < borderSize || x >= compW-borderSize || y < borderSize || y >= compH-borderSize {
+					composite.Set(x, y, color.RGBA{R: r, G: g, B: b, A: 255})
+				}
+			}
+		}
 	}
 
 	// Save composite
@@ -189,6 +218,14 @@ func (a *App) ProcessComposite(images []string, templateID string) (string, erro
 	}
 
 	return outputPath, nil
+}
+
+// SendEmail mocks sending the final image via email.
+func (a *App) SendEmail(imagePath string, emailAddress string) error {
+	fmt.Printf("[APP] Mock Send Email -> To: %s | Attachment: %s\n", emailAddress, imagePath)
+	// In production, instantiate an SMTP client or AWS SES call here.
+	time.Sleep(1500 * time.Millisecond) // simulate network delay
+	return nil
 }
 
 // PrintPhoto triggers a silent print of the final composite image.

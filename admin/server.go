@@ -37,9 +37,10 @@ h1 span{color:#e2e8f0}
 table{width:100%;border-collapse:collapse;margin-bottom:1rem;table-layout:fixed}
 th{text-align:left;padding:.5rem .75rem;color:#64748b;font-size:.8rem;border-bottom:1px solid #334155}
 td{padding:.5rem .75rem;border-bottom:1px solid rgba(255,255,255,.05);font-size:.9rem}
+td.actions { white-space: nowrap; }
 code{background:rgba(0,0,0,.3);padding:2px 6px;border-radius:4px;font-size:.8rem}
 .swatch{width:24px;height:24px;border-radius:6px;border:2px solid rgba(255,255,255,.15);display:inline-block;vertical-align:middle;background-size:cover;background-position:center}
-.del-btn{background:none;border:none;cursor:pointer;font-size:1rem;opacity:.5;padding:4px 8px;border-radius:4px}
+.del-btn{background:none;border:none;cursor:pointer;font-size:1.2rem;opacity:.5;padding:4px 8px;border-radius:4px}
 .del-btn:hover{opacity:1;background:rgba(239,68,68,.2)}
 .status{position:fixed;bottom:1rem;right:1rem;padding:.5rem 1rem;border-radius:8px;font-size:.85rem;background:#22c55e33;color:#22c55e;opacity:0;transition:opacity .3s;z-index:999}
 .status.show{opacity:1}
@@ -55,8 +56,39 @@ code{background:rgba(0,0,0,.3);padding:2px 6px;border-radius:4px;font-size:.8rem
 .drop-zone:hover, .drop-zone.dragover { border-color: #6366f1; background: rgba(99,102,241,0.05); color: #c7d2fe; }
 .drop-zone h3 { font-size: 1rem; margin-bottom: .5rem; color: #e2e8f0; }
 .drop-zone p { font-size: .85rem; }
-.drop-zone input[type=file] { position: absolute; inset: 0; w: 100%; h: 100%; opacity: 0; cursor: pointer; }
+.drop-zone input[type=file] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .progress-bar { height: 4px; background: #6366f1; width: 0%; position: absolute; bottom: 0; left: 0; border-radius: 0 0 8px 8px; transition: width .2s; }
+
+/* Layout Editor Modal */
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+.modal-bg.show { display: flex; }
+.modal { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 1.5rem; width: 90vw; max-width: 1200px; max-height: 90vh; display: flex; flex-direction: column; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.modal-header h2 { font-size: 1.25rem; color: #e2e8f0; }
+.modal-close { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1.5rem; }
+.modal-close:hover { color: #fff; }
+.modal-body { display: flex; gap: 2rem; flex: 1; min-height: 0; }
+
+.editor-sidebar { width: 300px; overflow-y: auto; padding-right: 1rem; }
+.layout-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+.layout-card h4 { margin-bottom: .5rem; font-size: .9rem; color: #94a3b8; }
+.input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+.input-group { display: flex; flex-direction: column; }
+.input-group label { font-size: .75rem; color: #64748b; margin-bottom: .25rem; }
+.input-group input { background: #0f172a; border: 1px solid #334155; color: #e2e8f0; padding: .4rem; border-radius: 4px; font-family: monospace; font-size: .85rem; width: 100%; }
+.input-group input:focus { border-color: #6366f1; outline: none; }
+
+.editor-canvas-wrap { flex: 1; background: #0f172a; border-radius: 8px; border: 1px solid #334155; position: relative; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+.editor-canvas { position: relative; background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.5); transform-origin: center; transition: transform 0.1s; }
+.editor-canvas img { display: block; width: 100%; height: 100%; pointer-events: none; }
+.canvas-box { position: absolute; border: 2px dashed #ff2a6d; background: rgba(255,42,109,0.3); display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.8); font-size: 1.5rem; cursor: move; }
+.canvas-box.active { border-color: #05d9e8; background: rgba(5,217,232,0.3); z-index: 10; }
+.resize-handle { position: absolute; width: 12px; height: 12px; background: #fff; border: 2px solid #05d9e8; right: -6px; bottom: -6px; cursor: nwse-resize; border-radius: 50%; display: none; }
+.canvas-box.active .resize-handle { display: block; }
+
+.btn { background: #6366f1; color: #fff; border: none; padding: .5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; width: 100%; margin-top: 1rem; transition: background .2s; }
+.btn:hover { background: #4f46e5; }
+.btn-sm { padding: .25rem .5rem; font-size: .8rem; width: auto; margin-top: 0; }
 </style>
 </head>
 <body>
@@ -97,12 +129,40 @@ code{background:rgba(0,0,0,.3);padding:2px 6px;border-radius:4px;font-size:.8rem
 
   <h2>Active Frames</h2>
   <table>
-    <thead><tr><th style="width:25%">ID / File</th><th style="width:25%">Label</th><th style="width:15%">Template</th><th style="width:25%">Type / Preview</th><th style="width:10%"></th></tr></thead>
+    <thead><tr><th style="width:25%">ID / File</th><th style="width:20%">Label</th><th style="width:15%">Template</th><th style="width:15%">Preview</th><th style="width:25%">Actions</th></tr></thead>
     <tbody id="framesBody"></tbody>
   </table>
 </div>
 
 <div id="status" class="status"></div>
+
+<!-- Layout Editor Modal -->
+<div class="modal-bg" id="layoutModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">Edit Layout</h2>
+      <button class="modal-close" onclick="closeEditor()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="editor-sidebar">
+        <p style="color:#94a3b8; font-size:0.85rem; margin-bottom:1rem;">Adjust the coordinates for each photo. Values are in pixels relative to the frame's top-left corner.</p>
+        <div id="sidebarInputs"></div>
+        <button class="btn" onclick="saveLayouts()">Save Changes</button>
+      </div>
+      <div class="editor-canvas-wrap" id="canvasWrap">
+        <!-- Scale controls -->
+        <div style="position:absolute; top:1rem; left:1rem; z-index:9; display:flex; gap:.5rem;">
+          <button class="btn btn-sm" onclick="zoomCanvas(0.1)">Zoom In</button>
+          <button class="btn btn-sm" onclick="zoomCanvas(-0.1)">Zoom Out</button>
+        </div>
+        <div class="editor-canvas" id="canvas">
+          <img id="canvasImg" src="" alt="Frame Preview">
+          <div id="canvasOverlays"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 let config = { bypassPayment: false, frames: [] };
@@ -138,11 +198,14 @@ function render() {
     let templateBadge = f.template ? '<span class="badge on">' + esc(f.template) + '</span>' : '<span class="badge off">Any</span>';
 
     return '<tr>' +
-      '<td><code>' + esc(f.id) + '</code></td>' +
+      '<td><code style="word-break: break-all;">' + esc(f.id) + '</code></td>' +
       '<td>' + esc(f.label) + '</td>' +
       '<td>' + templateBadge + '</td>' +
       '<td>' + previewHtml + '</td>' +
-      '<td><button class="del-btn" onclick="removeFrame(\'' + esc(f.id) + '\')">🗑</button></td>' +
+      '<td class="actions" style="display:flex; gap:0.5rem; align-items:center;">' +
+      '<button class="btn btn-sm" onclick="openEditor(\'' + esc(f.id) + '\')">Edit Layout</button>' +
+      '<button class="del-btn" onclick="removeFrame(\'' + esc(f.id) + '\')" title="Delete">🗑</button>' +
+      '</td>' +
       '</tr>';
   }).join('');
 }
@@ -222,8 +285,185 @@ document.querySelectorAll('.drop-zone').forEach(z => {
   z.addEventListener('drop', () => z.classList.remove('dragover'));
 });
 
+// --- Layout Editor Logic ---
+let activeFrameId = null;
+let activeLayouts = [];
+let activeTemplateScale = 1;
+let activeIndex = -1;
+
+function openEditor(id) {
+  const f = config.frames.find(x => x.id === id);
+  if (!f) return;
+  activeFrameId = id;
+  // Deep copy layouts so we don't modify config until save
+  activeLayouts = JSON.parse(JSON.stringify(f.layouts || []));
+  
+  if (activeLayouts.length !== 4) {
+    flash('Warning: Frame does not have exactly 4 layouts defined.', true);
+  }
+
+  document.getElementById('modalTitle').textContent = 'Edit Layout: ' + f.label;
+  
+  // Setup canvas
+  const canvas = document.getElementById('canvas');
+  const img = document.getElementById('canvasImg');
+  const ts = new Date().getTime();
+  img.src = '/frames/' + f.id + '.png?t=' + ts;
+  
+  // Real dimensions
+  let w = 600, h = 1800;
+  if (f.template === 'postcard_4x6') { w = 1200; h = 1800; }
+  
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  
+  // Calculate initial zoom to fit wrap
+  const wrap = document.getElementById('canvasWrap');
+  const scaleX = (wrap.clientWidth - 40) / w;
+  const scaleY = (wrap.clientHeight - 40) / h;
+  activeTemplateScale = Math.min(scaleX, scaleY, 1);
+  updateCanvasTransform();
+
+  renderSidebarInputs();
+  renderCanvasOverlays();
+  
+  document.getElementById('layoutModal').classList.add('show');
+}
+
+function closeEditor() {
+  document.getElementById('layoutModal').classList.remove('show');
+  activeFrameId = null;
+}
+
+function zoomCanvas(delta) {
+  activeTemplateScale = Math.max(0.1, Math.min(3, activeTemplateScale + delta));
+  updateCanvasTransform();
+}
+
+function updateCanvasTransform() {
+  document.getElementById('canvas').style.transform = 'scale(' + activeTemplateScale + ')';
+}
+
+function renderSidebarInputs() {
+  const s = document.getElementById('sidebarInputs');
+  s.innerHTML = activeLayouts.map((lo, i) =>
+    '<div class="layout-card" onmouseenter="highlightBox(' + i + ')" onmouseleave="highlightBox(-1)">' +
+      '<h4>Photo ' + (i+1) + '</h4>' +
+      '<div class="input-grid">' +
+        '<div class="input-group"><label>X</label><input type="number" value="' + lo.x + '" onchange="updateVal(' + i + ', \'x\', this.value)"></div>' +
+        '<div class="input-group"><label>Y</label><input type="number" value="' + lo.y + '" onchange="updateVal(' + i + ', \'y\', this.value)"></div>' +
+        '<div class="input-group"><label>Width</label><input type="number" value="' + lo.width + '" onchange="updateVal(' + i + ', \'width\', this.value)"></div>' +
+        '<div class="input-group"><label>Height</label><input type="number" value="' + lo.height + '" onchange="updateVal(' + i + ', \'height\', this.value)"></div>' +
+      '</div>' +
+    '</div>'
+  ).join('');
+}
+
+function updateVal(idx, key, val) {
+  activeLayouts[idx][key] = parseInt(val, 10) || 0;
+  renderCanvasOverlays();
+}
+
+function renderCanvasOverlays() {
+  const container = document.getElementById('canvasOverlays');
+  container.innerHTML = activeLayouts.map((lo, i) =>
+    '<div class="canvas-box ' + (activeIndex === i ? 'active' : '') + '" ' +
+         'style="left:' + lo.x + 'px; top:' + lo.y + 'px; width:' + lo.width + 'px; height:' + lo.height + 'px;" ' +
+         'data-idx="' + i + '">' +
+      (i+1) +
+      '<div class="resize-handle" data-idx="' + i + '"></div>' +
+    '</div>'
+  ).join('');
+}
+
+function highlightBox(idx) {
+  activeIndex = idx;
+  renderCanvasOverlays();
+}
+
+// --- Drag & Drop / Resize Logic for Canvas ---
+let isDragging = false;
+let isResizing = false;
+let dragStartX, dragStartY;
+let initialLayout = null;
+
+const canvasWrap = document.getElementById('canvasWrap');
+
+canvasWrap.addEventListener('mousedown', (e) => {
+  if (e.target.classList.contains('resize-handle')) {
+    isResizing = true;
+    activeIndex = parseInt(e.target.dataset.idx, 10);
+    startDrag(e);
+  } else if (e.target.classList.contains('canvas-box')) {
+    isDragging = true;
+    activeIndex = parseInt(e.target.dataset.idx, 10);
+    renderCanvasOverlays(); // update active class
+    startDrag(e);
+  } else {
+    activeIndex = -1;
+    renderCanvasOverlays();
+  }
+});
+
+function startDrag(e) {
+  e.preventDefault();
+  dragStartX = e.clientX;
+  dragStartY = e.clientY;
+  initialLayout = { ...activeLayouts[activeIndex] };
+  
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+}
+
+function onMouseMove(e) {
+  if (!isDragging && !isResizing) return;
+  e.preventDefault();
+  
+  const dx = (e.clientX - dragStartX) / activeTemplateScale;
+  const dy = (e.clientY - dragStartY) / activeTemplateScale;
+  
+  const lo = activeLayouts[activeIndex];
+  
+  if (isDragging) {
+    lo.x = Math.round(initialLayout.x + dx);
+    lo.y = Math.round(initialLayout.y + dy);
+  } else if (isResizing) {
+    lo.width = Math.max(10, Math.round(initialLayout.width + dx));
+    lo.height = Math.max(10, Math.round(initialLayout.height + dy));
+  }
+  
+  renderCanvasOverlays();
+  renderSidebarInputs(); // Keep numbers in sync
+}
+
+function onMouseUp(e) {
+  isDragging = false;
+  isResizing = false;
+  document.removeEventListener('mousemove', onMouseMove);
+  document.removeEventListener('mouseup', onMouseUp);
+}
+
+async function saveLayouts() {
+  if (!activeFrameId) return;
+  try {
+    const res = await fetch('/api/frames/' + encodeURIComponent(activeFrameId) + '/layouts', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(activeLayouts)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    flash('Layouts saved successfully!');
+    closeEditor();
+    await load();
+  } catch (err) {
+    flash(err.message || 'Failed to save layouts', true);
+  }
+}
+
+let loadTimer = setInterval(() => {
+  if (!activeFrameId) load(); // only auto-refresh if editor is closed
+}, 5000);
 load();
-setInterval(load, 5000); // auto-refresh every 5s
 </script>
 </body>
 </html>`
@@ -364,22 +604,47 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 			return
 		}
 
+		// Provide default layouts based on template so user has a starting point
+		var layouts []PhotoLayout
+		if template == "strip_2x6" {
+			// 600x1800, stack of 4
+			h := 1800 / 4
+			layouts = []PhotoLayout{
+				{X: 0, Y: 0 * h, Width: 600, Height: h},
+				{X: 0, Y: 1 * h, Width: 600, Height: h},
+				{X: 0, Y: 2 * h, Width: 600, Height: h},
+				{X: 0, Y: 3 * h, Width: 600, Height: h},
+			}
+		} else if template == "postcard_4x6" {
+			// 1200x1800, 2x2 grid
+			layouts = []PhotoLayout{
+				{X: 0, Y: 0, Width: 600, Height: 900},
+				{X: 600, Y: 0, Width: 600, Height: 900},
+				{X: 0, Y: 900, Width: 600, Height: 900},
+				{X: 600, Y: 900, Width: 600, Height: 900},
+			}
+		}
+
 		// Add it to the config
 		newFrame := Frame{
 			ID:       id,
 			Label:    label,
 			FilePath: destPath,
 			Template: template,
+			Layouts:  layouts,
 		}
 		cfg.AddFrame(newFrame)
 
 		w.WriteHeader(http.StatusOK)
 	})
 
-	// 5. API: DELETE /api/frames/{id}
+	// 5. API: PUT /api/frames/{id}/layouts
 	mux.HandleFunc("/api/frames/", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodDelete {
-			id := strings.TrimPrefix(r.URL.Path, "/api/frames/")
+		path := strings.TrimPrefix(r.URL.Path, "/api/frames/")
+
+		// Handle DELETE /api/frames/{id}
+		if r.Method == http.MethodDelete && !strings.Contains(path, "/") {
+			id := path
 			if id == "" {
 				http.Error(w, "missing frame id", 400)
 				return
@@ -398,6 +663,26 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
+
+		// Handle PUT /api/frames/{id}/layouts
+		if r.Method == http.MethodPut && strings.HasSuffix(path, "/layouts") {
+			id := strings.TrimSuffix(path, "/layouts")
+			if id == "" {
+				http.Error(w, "missing frame id", 400)
+				return
+			}
+
+			var layouts []PhotoLayout
+			if err := json.NewDecoder(r.Body).Decode(&layouts); err != nil {
+				http.Error(w, err.Error(), 400)
+				return
+			}
+
+			cfg.UpdateFrameLayouts(id, layouts)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
 		http.Error(w, "Method not allowed", 405)
 	})
 

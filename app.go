@@ -160,7 +160,6 @@ func (a *App) ProcessComposite(images []string, templateID string, frameID strin
 	}
 
 	var composite *image.RGBA
-	compW, compH := 0, 0
 
 	// Helper for center cropping an image to match a target aspect ratio
 	centerCrop := func(bounds image.Rectangle, targetW, targetH int) image.Rectangle {
@@ -192,66 +191,79 @@ func (a *App) ProcessComposite(images []string, templateID string, frameID strin
 		)
 	}
 
-	switch templateID {
-	case "strip_2x6":
-		// Vertical strip: 2 inches wide, 6 inches tall at 300DPI = 600x1800px
-		// Stack photos vertically
-		photoW := 600
-		photoH := 1800 / len(srcImages)
-		compW, compH = 600, 1800
-		composite = image.NewRGBA(image.Rect(0, 0, compW, compH))
-
-		for i, src := range srcImages {
-			destRect := image.Rect(0, i*photoH, photoW, (i+1)*photoH)
-			cropRect := centerCrop(src.Bounds(), photoW, photoH)
-			xdraw.CatmullRom.Scale(composite, destRect, src, cropRect, draw.Src, nil)
-		}
-
-	case "postcard_4x6":
-		// Postcard grid: 4x6 inches at 300DPI = 1200x1800px
-		// 2x2 grid of photos
-		photoW := 600
-		photoH := 900
-		compW, compH = 1200, 1800
-		composite = image.NewRGBA(image.Rect(0, 0, compW, compH))
-
-		for i, src := range srcImages {
-			col := i % 2
-			row := i / 2
-			destRect := image.Rect(col*photoW, row*photoH, (col+1)*photoW, (row+1)*photoH)
-			cropRect := centerCrop(src.Bounds(), photoW, photoH)
-			xdraw.CatmullRom.Scale(composite, destRect, src, cropRect, draw.Src, nil)
-		}
-
-	default:
-		return "", fmt.Errorf("unknown template: %s", templateID)
-	}
-
-	// Apply Frame PNG Overlay
+	// Find selected frame to get layouts and overlay
+	var selectedFrame *admin.Frame
 	if frameID != "none" {
-		// Look up frame in admin config
-		var selectedFrame *admin.Frame
 		for _, f := range a.adminCfg.GetFrames() {
 			if f.ID == frameID {
 				selectedFrame = &f
 				break
 			}
 		}
+	}
 
-		if selectedFrame != nil && selectedFrame.FilePath != "" {
-			// PNG Overlay case — load and alpha blend
-			f, err := os.Open(selectedFrame.FilePath)
+	// Determine composite resolution based on template
+	var compW, compH int
+	switch templateID {
+	case "strip_2x6":
+		compW, compH = 600, 1800
+	case "postcard_4x6":
+		compW, compH = 1200, 1800
+	default:
+		return "", fmt.Errorf("unknown template: %s", templateID)
+	}
+
+	composite = image.NewRGBA(image.Rect(0, 0, compW, compH))
+
+	// Check if we have custom layouts for these photos
+	hasValidLayouts := selectedFrame != nil && len(selectedFrame.Layouts) == len(srcImages)
+
+	if hasValidLayouts {
+		// Use custom coordinates from Admin Layout Editor
+		for i, src := range srcImages {
+			lo := selectedFrame.Layouts[i]
+			destRect := image.Rect(lo.X, lo.Y, lo.X+lo.Width, lo.Y+lo.Height)
+			cropRect := centerCrop(src.Bounds(), lo.Width, lo.Height)
+			xdraw.CatmullRom.Scale(composite, destRect, src, cropRect, draw.Src, nil)
+		}
+	} else {
+		// Fallback to rigid mathematical grid if no custom layouts exist
+		switch templateID {
+		case "strip_2x6":
+			photoW := 600
+			photoH := 1800 / len(srcImages)
+			for i, src := range srcImages {
+				destRect := image.Rect(0, i*photoH, photoW, (i+1)*photoH)
+				cropRect := centerCrop(src.Bounds(), photoW, photoH)
+				xdraw.CatmullRom.Scale(composite, destRect, src, cropRect, draw.Src, nil)
+			}
+
+		case "postcard_4x6":
+			photoW := 600
+			photoH := 900
+			for i, src := range srcImages {
+				col := i % 2
+				row := i / 2
+				destRect := image.Rect(col*photoW, row*photoH, (col+1)*photoW, (row+1)*photoH)
+				cropRect := centerCrop(src.Bounds(), photoW, photoH)
+				xdraw.CatmullRom.Scale(composite, destRect, src, cropRect, draw.Src, nil)
+			}
+		}
+	}
+
+	// Apply Frame PNG Overlay (Alpha Blending)
+	if selectedFrame != nil && selectedFrame.FilePath != "" {
+		f, err := os.Open(selectedFrame.FilePath)
+		if err == nil {
+			defer f.Close()
+			overlayImg, err := png.Decode(f)
 			if err == nil {
-				defer f.Close()
-				overlayImg, err := png.Decode(f)
-				if err == nil {
-					// Scale overlay to match composite exactly just in case, though it should be exact
-					scaledOverlay := image.NewRGBA(image.Rect(0, 0, compW, compH))
-					xdraw.CatmullRom.Scale(scaledOverlay, scaledOverlay.Bounds(), overlayImg, overlayImg.Bounds(), draw.Over, nil)
+				// Scale overlay to match composite exactly just in case, though it should be exact
+				scaledOverlay := image.NewRGBA(image.Rect(0, 0, compW, compH))
+				xdraw.CatmullRom.Scale(scaledOverlay, scaledOverlay.Bounds(), overlayImg, overlayImg.Bounds(), draw.Over, nil)
 
-					// Alpha blend over the photo grid
-					draw.Draw(composite, composite.Bounds(), scaledOverlay, image.Point{}, draw.Over)
-				}
+				// Alpha blend over the photo grid
+				draw.Draw(composite, composite.Bounds(), scaledOverlay, image.Point{}, draw.Over)
 			}
 		}
 	}

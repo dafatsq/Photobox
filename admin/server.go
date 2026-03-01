@@ -358,7 +358,10 @@ function renderSidebarInputs() {
   const s = document.getElementById('sidebarInputs');
   s.innerHTML = activeLayouts.map((lo, i) =>
     '<div class="layout-card">' +
-      '<h4>Photo ' + (i+1) + '</h4>' +
+      '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.5rem;">' +
+        '<h4 style="margin:0;">Photo ' + (i+1) + '</h4>' +
+        '<button class="btn btn-sm" style="margin:0; width:auto; background:#334155;" onclick="resetLayout(' + i + ')">Reset</button>' +
+      '</div>' +
       '<div class="input-grid">' +
         '<div class="input-group"><label>X</label><input type="number" value="' + lo.x + '" onchange="updateVal(' + i + ', \'x\', this.value)"></div>' +
         '<div class="input-group"><label>Y</label><input type="number" value="' + lo.y + '" onchange="updateVal(' + i + ', \'y\', this.value)"></div>' +
@@ -367,6 +370,31 @@ function renderSidebarInputs() {
       '</div>' +
     '</div>'
   ).join('');
+}
+
+function resetLayout(idx) {
+  const f = config.frames.find(x => x.id === activeFrameId);
+  if (!f) return;
+  
+  if (f.template === 'strip_2x6') {
+    activeLayouts[idx] = { x: 0, y: idx * 400, width: 600, height: 400 };
+  } else if (f.template === 'postcard_4x6') {
+    const col = idx % 2;
+    const row = Math.floor(idx / 2);
+    // matches the 540x360 logic with 40px offsets
+    activeLayouts[idx] = { 
+      x: col === 0 ? 40 : 620, 
+      y: row === 0 ? 40 : 440, 
+      width: 540, 
+      height: 360 
+    };
+  } else {
+    // fallback generic
+    activeLayouts[idx] = { x: 0, y: 0, width: 600, height: 400 };
+  }
+  
+  renderSidebarInputs();
+  renderCanvasOverlays();
 }
 
 function updateVal(idx, key, val) {

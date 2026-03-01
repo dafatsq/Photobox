@@ -3,7 +3,8 @@ export namespace admin {
 	export class Frame {
 	    id: string;
 	    label: string;
-	    color: string;
+	    filePath: string;
+	    template: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Frame(source);
@@ -13,7 +14,8 @@ export namespace admin {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.label = source["label"];
-	        this.color = source["color"];
+	        this.filePath = source["filePath"];
+	        this.template = source["template"];
 	    }
 	}
 

@@ -6,7 +6,6 @@ import './FrameScreen.css';
 interface FrameOption {
     id: string;
     label: string;
-    color: string;
 }
 
 const FrameScreen: React.FC = () => {
@@ -24,8 +23,7 @@ const FrameScreen: React.FC = () => {
                 console.error('Failed to load frames:', err);
                 // Fallback to basic frames
                 setFrames([
-                    { id: 'none', label: 'No Frame', color: 'transparent' },
-                    { id: 'classic_black', label: 'Classic Black', color: '#1a1a1a' },
+                    { id: 'none', label: 'No Frame' },
                 ]);
             });
     }, []);
@@ -57,13 +55,11 @@ const FrameScreen: React.FC = () => {
                         <div
                             className="frame-card-preview"
                             style={{
-                                borderColor: f.color,
-                                borderWidth: f.id === 'none' ? '0' : '6px',
-                                borderStyle: 'solid',
-                                background: f.id === 'none' ? '#333' : '#111'
+                                background: f.id === 'none' ? '#333' : `url('http://localhost:8080/frames/${f.id}.png') center/cover`,
+                                border: f.id === 'none' ? 'none' : '4px solid #1e293b'
                             }}
                         >
-                            <span className="frame-preview-icon">🖼️</span>
+                            {f.id === 'none' && <span className="frame-preview-icon">🚫</span>}
                         </div>
                         <h3 className="frame-card-label">{f.label}</h3>
                     </button>

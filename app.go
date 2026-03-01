@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"image"
-	"image/color"
 	"image/draw"
 	"image/jpeg"
 	"image/png"
@@ -228,26 +227,30 @@ func (a *App) ProcessComposite(images []string, templateID string, frameID strin
 		return "", fmt.Errorf("unknown template: %s", templateID)
 	}
 
-	// Apply Frame (Border)
+	// Apply Frame PNG Overlay
 	if frameID != "none" {
-		var r, g, b uint8 = 255, 255, 255 // Default white
-		switch frameID {
-		case "classic_black":
-			r, g, b = 26, 26, 26
-		case "neon_pink":
-			r, g, b = 255, 42, 109
-		case "neon_blue":
-			r, g, b = 5, 217, 232
-		case "vintage_gold":
-			r, g, b = 212, 175, 55
+		// Look up frame in admin config
+		var selectedFrame *admin.Frame
+		for _, f := range a.adminCfg.GetFrames() {
+			if f.ID == frameID {
+				selectedFrame = &f
+				break
+			}
 		}
 
-		borderSize := 40 // 40px border
-		for y := 0; y < compH; y++ {
-			for x := 0; x < compW; x++ {
-				// If near the edge, draw border color
-				if x < borderSize || x >= compW-borderSize || y < borderSize || y >= compH-borderSize {
-					composite.Set(x, y, color.RGBA{R: r, G: g, B: b, A: 255})
+		if selectedFrame != nil && selectedFrame.FilePath != "" {
+			// PNG Overlay case — load and alpha blend
+			f, err := os.Open(selectedFrame.FilePath)
+			if err == nil {
+				defer f.Close()
+				overlayImg, err := png.Decode(f)
+				if err == nil {
+					// Scale overlay to match composite exactly just in case, though it should be exact
+					scaledOverlay := image.NewRGBA(image.Rect(0, 0, compW, compH))
+					xdraw.CatmullRom.Scale(scaledOverlay, scaledOverlay.Bounds(), overlayImg, overlayImg.Bounds(), draw.Over, nil)
+
+					// Alpha blend over the photo grid
+					draw.Draw(composite, composite.Bounds(), scaledOverlay, image.Point{}, draw.Over)
 				}
 			}
 		}

@@ -6,9 +6,10 @@ import (
 
 // Frame represents a selectable frame/border option.
 type Frame struct {
-	ID    string `json:"id"`
-	Label string `json:"label"`
-	Color string `json:"color"`
+	ID       string `json:"id"`
+	Label    string `json:"label"`
+	FilePath string `json:"filePath"` // absolute path on disk
+	Template string `json:"template"` // "strip_2x6" | "postcard_4x6" | "" (all)
 }
 
 // AdminConfig holds all admin-configurable settings, safe for concurrent access.
@@ -16,19 +17,16 @@ type AdminConfig struct {
 	mu            sync.RWMutex
 	bypassPayment bool
 	frames        []Frame
+	framesDir     string // directory where PNG frame files are stored
 }
 
 // NewAdminConfig creates a config with sensible defaults.
-func NewAdminConfig() *AdminConfig {
+func NewAdminConfig(framesDir string) *AdminConfig {
 	return &AdminConfig{
 		bypassPayment: false,
+		framesDir:     framesDir,
 		frames: []Frame{
-			{ID: "none", Label: "No Frame", Color: "transparent"},
-			{ID: "classic_black", Label: "Classic Black", Color: "#1a1a1a"},
-			{ID: "classic_white", Label: "Classic White", Color: "#ffffff"},
-			{ID: "neon_pink", Label: "Neon Pink", Color: "#ff2a6d"},
-			{ID: "neon_blue", Label: "Neon Blue", Color: "#05d9e8"},
-			{ID: "vintage_gold", Label: "Vintage Gold", Color: "#d4af37"},
+			{ID: "none", Label: "No Frame", FilePath: "", Template: ""},
 		},
 	}
 }
@@ -75,4 +73,10 @@ func (c *AdminConfig) RemoveFrame(id string) {
 		}
 	}
 	c.frames = filtered
+}
+
+func (c *AdminConfig) FramesDir() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.framesDir
 }

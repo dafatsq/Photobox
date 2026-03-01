@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"os"
+	"path/filepath"
 
 	"photobox/admin"
 
@@ -18,8 +19,14 @@ func main() {
 	// Enable WebView2 camera/media access without permission prompts
 	os.Setenv("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-media-stream --use-fake-ui-for-media-stream")
 
+	// Ensure PhotoboxData storage directory exists
+	homeDir, _ := os.UserHomeDir()
+	dataDir := filepath.Join(homeDir, "PhotoboxData")
+	framesDir := filepath.Join(dataDir, "frames")
+	os.MkdirAll(framesDir, 0755)
+
 	// Create shared admin config
-	adminCfg := admin.NewAdminConfig()
+	adminCfg := admin.NewAdminConfig(framesDir)
 
 	// Start admin dashboard on port 8080 (separate browser window)
 	go admin.StartAdminServer(adminCfg, 8080)

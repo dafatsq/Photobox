@@ -3,7 +3,6 @@ import AttractScreen from './screens/AttractScreen';
 import PaymentScreen from './screens/PaymentScreen';
 import TemplateScreen from './screens/TemplateScreen';
 import CaptureScreen from './screens/CaptureScreen';
-import FrameScreen from './screens/FrameScreen';
 import ProcessingScreen from './screens/ProcessingScreen';
 import ShareScreen from './screens/ShareScreen';
 import DoneScreen from './screens/DoneScreen';
@@ -22,8 +21,6 @@ function App() {
                 return <TemplateScreen />;
             case 'capture':
                 return <CaptureScreen />;
-            case 'frame':
-                return <FrameScreen />;
             case 'processing':
                 return <ProcessingScreen />;
             case 'share':

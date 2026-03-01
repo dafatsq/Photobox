@@ -28,6 +28,14 @@ type App struct {
 	adminCfg *admin.AdminConfig
 }
 
+// FrontendFrameConfig is the struct returned to React to map the live view to the layout coordinates
+type FrontendFrameConfig struct {
+	ID       string              `json:"id"`
+	FilePath string              `json:"filePath"`
+	Template string              `json:"template"`
+	Layouts  []admin.PhotoLayout `json:"layouts"`
+}
+
 // NewApp creates a new App application struct.
 func NewApp(camera hardware.CameraDriver, printer hardware.PrinterDriver, adminCfg *admin.AdminConfig) *App {
 	homeDir, _ := os.UserHomeDir()
@@ -280,6 +288,21 @@ func (a *App) ProcessComposite(images []string, templateID string, frameID strin
 	}
 
 	return outputPath, nil
+}
+
+// GetFrameConfig returns the physical layout coordinates for a specific frame so the frontend can align the live view.
+func (a *App) GetFrameConfig(id string) (*FrontendFrameConfig, error) {
+	for _, f := range a.adminCfg.GetFrames() {
+		if f.ID == id {
+			return &FrontendFrameConfig{
+				ID:       f.ID,
+				FilePath: f.FilePath,
+				Template: f.Template,
+				Layouts:  f.Layouts,
+			}, nil
+		}
+	}
+	return nil, fmt.Errorf("frame config not found: %s", id)
 }
 
 // SendEmail mocks sending the final image via email.

@@ -10,6 +10,10 @@ export function GetDataDir() {
   return window['go']['main']['App']['GetDataDir']();
 }
 
+export function GetFrameConfig(arg1) {
+  return window['go']['main']['App']['GetFrameConfig'](arg1);
+}
+
 export function GetFrames() {
   return window['go']['main']['App']['GetFrames']();
 }

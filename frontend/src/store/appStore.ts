@@ -5,7 +5,6 @@ export type AppState =
   | 'payment'
   | 'template'
   | 'capture'
-  | 'frame'
   | 'processing'
   | 'share'
   | 'done'
@@ -22,6 +21,7 @@ interface AppStore {
   selectedTemplate: TemplateType | null;
   selectedFrame: string | null;
   capturedImages: string[];
+  capturedB64s: string[];
   compositeImagePath: string | null;
   currentSequence: number;
   totalShots: number;
@@ -34,8 +34,7 @@ interface AppStore {
   goToTemplate: () => void;
   selectTemplate: (template: TemplateType) => void;
   goToCapture: () => void;
-  addCapturedImage: (path: string) => void;
-  goToFrame: () => void;
+  addCapturedImage: (path: string, b64: string) => void;
   selectFrame: (frameId: string) => void;
   goToProcessing: () => void;
   setCompositeImage: (path: string) => void;
@@ -67,6 +66,7 @@ export const useAppStore = create<AppStore>((set) => ({
   selectedTemplate: null,
   selectedFrame: null,
   capturedImages: [],
+  capturedB64s: [],
   compositeImagePath: null,
   currentSequence: 0,
   totalShots: 4,
@@ -77,6 +77,7 @@ export const useAppStore = create<AppStore>((set) => ({
       currentState: 'payment',
       sessionId: generateSessionId(),
       capturedImages: [],
+      capturedB64s: [],
       compositeImagePath: null,
       currentSequence: 0,
       errorMessage: '',
@@ -94,18 +95,16 @@ export const useAppStore = create<AppStore>((set) => ({
   goToCapture: () =>
     set({ currentState: 'capture', currentSequence: 0 }),
 
-  addCapturedImage: (path: string) =>
+  addCapturedImage: (path: string, b64: string) =>
     set((state) => ({
       capturedImages: [...state.capturedImages, path],
+      capturedB64s: [...state.capturedB64s, b64],
     })),
 
   incrementSequence: () =>
     set((state) => ({
       currentSequence: state.currentSequence + 1,
     })),
-
-  goToFrame: () =>
-    set({ currentState: 'frame' }),
 
   selectFrame: (frameId: string) =>
     set({ selectedFrame: frameId }),
@@ -132,6 +131,7 @@ export const useAppStore = create<AppStore>((set) => ({
       selectedTemplate: null,
       selectedFrame: null,
       capturedImages: [],
+      capturedB64s: [],
       compositeImagePath: null,
       currentSequence: 0,
       errorMessage: '',

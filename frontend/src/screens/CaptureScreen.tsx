@@ -1,83 +1,76 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../store/appStore';
-import { TriggerCapture, GetLiveViewURL, SaveWebRTCImage, StartLiveView, StopLiveView } from '../../wailsjs/go/main/App';
+import { TriggerCapture, GetLiveViewURL, StartLiveView, StopLiveView, GetFrames, GetFrameConfig, GetImageBase64 } from '../../wailsjs/go/main/App';
 import FlashOverlay from '../components/FlashOverlay';
 import './CaptureScreen.css';
 
-type PreviewMode = 'loading' | 'dcc' | 'webrtc';
+interface FrameOption {
+    id: string;
+    label: string;
+}
 
 const CaptureScreen: React.FC = () => {
     const sessionId = useAppStore((s) => s.sessionId);
     const currentSequence = useAppStore((s) => s.currentSequence);
     const totalShots = useAppStore((s) => s.totalShots);
+    const selectedTemplate = useAppStore((s) => s.selectedTemplate);
     const addCapturedImage = useAppStore((s) => s.addCapturedImage);
     const incrementSequence = useAppStore((s) => s.incrementSequence);
+    const selectFrame = useAppStore((s) => s.selectFrame);
+    const selectedFrame = useAppStore((s) => s.selectedFrame);
+    const capturedB64s = useAppStore((s) => s.capturedB64s);
     const goToProcessing = useAppStore((s) => s.goToProcessing);
     const goToError = useAppStore((s) => s.goToError);
 
-    const videoRef = useRef<HTMLVideoElement>(null);
     const imgRef = useRef<HTMLImageElement>(null);
-    const streamRef = useRef<MediaStream | null>(null);
     const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const liveViewActiveRef = useRef(false);
 
-    const [previewMode, setPreviewMode] = useState<PreviewMode>('loading');
+    const [frames, setFrames] = useState<FrameOption[]>([]);
+    const [frameConfig, setFrameConfig] = useState<any>(null); // FrontendFrameConfig from Go
     const [liveViewURL, setLiveViewURL] = useState('');
     const [flashTrigger, setFlashTrigger] = useState(false);
     const [frozen, setFrozen] = useState(false);
     const [frozenImage, setFrozenImage] = useState<string | null>(null);
     const [capturing, setCapturing] = useState(false);
     const [ready, setReady] = useState(false);
+    const [sessionStarted, setSessionStarted] = useState(false);
+    const [isMirrored, setIsMirrored] = useState(true);
 
-    // Determine preview mode on mount
+    // Initial Load: Fetch Frames & Start Camera
     useEffect(() => {
         let cancelled = false;
 
-        const stopLiveViewIfActive = async () => {
-            if (liveViewActiveRef.current) {
-                liveViewActiveRef.current = false;
-                try { await StopLiveView(); } catch { /* best effort */ }
-            }
-        };
-
         const init = async () => {
             try {
-                // Try to start DCC live view first
+                // 1. Load Available Frames
+                const availableFrames = await GetFrames() || [{ id: 'none', label: 'No Frame' }];
+                if (!cancelled) {
+                    setFrames(availableFrames);
+                    if (!selectedFrame && availableFrames.length > 0) {
+                        selectFrame(availableFrames[0].id);
+                    }
+                }
+
+                // 2. Start Camera Live View
                 await StartLiveView();
                 const url = await GetLiveViewURL();
                 if (!cancelled && url) {
                     liveViewActiveRef.current = true;
                     setLiveViewURL(url);
-                    setPreviewMode('dcc');
                     setReady(true);
                 } else if (!cancelled) {
-                    // DCC not available — fall back to WebRTC
-                    setPreviewMode('webrtc');
-                    startWebRTC();
+                    goToError('DigiCamControl not detected. Interactive layout requires main camera.');
                 }
-            } catch {
-                if (!cancelled) {
-                    // DCC not reachable — fall back to WebRTC
-                    setPreviewMode('webrtc');
-                    startWebRTC();
-                }
+            } catch (err) {
+                if (!cancelled) goToError('Camera initialization failed.');
             }
         };
 
-        const startWebRTC = async () => {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: 1920, height: 1080, facingMode: 'user' },
-                    audio: false,
-                });
-                if (!cancelled && videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                    streamRef.current = stream;
-                    setReady(true);
-                }
-            } catch (err) {
-                console.error('Failed to access camera:', err);
-                goToError('Camera not accessible. Please check your camera connection.');
+        const stopLiveViewIfActive = async () => {
+            if (liveViewActiveRef.current) {
+                liveViewActiveRef.current = false;
+                try { await StopLiveView(); } catch { }
             }
         };
 
@@ -86,25 +79,31 @@ const CaptureScreen: React.FC = () => {
         return () => {
             cancelled = true;
             stopLiveViewIfActive();
-            if (streamRef.current) {
-                streamRef.current.getTracks().forEach((t) => t.stop());
-            }
-            if (pollingRef.current) {
-                clearInterval(pollingRef.current);
-            }
+            if (pollingRef.current) clearInterval(pollingRef.current);
         };
-    }, [goToError]);
+    }, []);
 
-    // Start JPEG polling for digiCamControl mode
+    // Fetch Config whenever selected Frame changes
     useEffect(() => {
-        if (previewMode !== 'dcc' || !liveViewURL || frozen) return;
+        if (!selectedFrame || selectedFrame === 'none') {
+            setFrameConfig(null);
+            return;
+        }
 
-        // Poll every 66ms for ~15fps live view, taking advantage of smaller image size
+        GetFrameConfig(selectedFrame)
+            .then(config => setFrameConfig(config))
+            .catch(err => console.error("Failed to load layout config:", err));
+    }, [selectedFrame]);
+
+    // Live View Polling
+    useEffect(() => {
+        if (!sessionStarted || !liveViewURL || frozen) return;
+
         pollingRef.current = setInterval(() => {
             if (imgRef.current && !frozen) {
                 imgRef.current.src = `${liveViewURL}?t=${Date.now()}`;
             }
-        }, 100);
+        }, 80);
 
         return () => {
             if (pollingRef.current) {
@@ -112,153 +111,197 @@ const CaptureScreen: React.FC = () => {
                 pollingRef.current = null;
             }
         };
-    }, [previewMode, liveViewURL, frozen]);
+    }, [sessionStarted, liveViewURL, frozen]);
 
-    // Freeze the current frame
-    const freezeFrame = useCallback(() => {
-        if (previewMode === 'dcc' && imgRef.current) {
-            // For polled image mode, just use the current src URL as the frozen image
-            // This avoids cross-origin tainted canvas errors
-            setFrozenImage(imgRef.current.src);
-        } else if (previewMode === 'webrtc' && videoRef.current) {
-            const canvas = document.createElement('canvas');
-            canvas.width = videoRef.current.videoWidth;
-            canvas.height = videoRef.current.videoHeight;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-                ctx.drawImage(videoRef.current, 0, 0);
-                setFrozenImage(canvas.toDataURL('image/jpeg'));
-            }
-        }
-        setFrozen(true);
-    }, [previewMode]);
-
-    // Handle capture button press
+    // Capture Logic
     const handleCapture = useCallback(async () => {
-        console.log('[Capture] Button pressed. Ready:', ready, 'Capturing:', capturing, 'Sequence:', currentSequence);
         if (capturing || !ready) return;
 
         setCapturing(true);
         setFlashTrigger(true);
-        freezeFrame();
+        setFrozen(true);
+
+        if (imgRef.current) setFrozenImage(imgRef.current.src);
 
         try {
-            let imagePath = '';
-            console.log('[Capture] Mode:', previewMode);
+            const imagePath = await TriggerCapture(sessionId, currentSequence);
 
-            if (previewMode === 'webrtc') {
-                const canvas = document.createElement('canvas');
-                if (videoRef.current) {
-                    canvas.width = videoRef.current.videoWidth;
-                    canvas.height = videoRef.current.videoHeight;
-                    const ctx = canvas.getContext('2d');
-                    if (ctx) {
-                        ctx.drawImage(videoRef.current, 0, 0);
-                        const base64Data = canvas.toDataURL('image/jpeg', 0.9);
-                        console.log('[Capture] Saving WebRTC image...');
-                        imagePath = await SaveWebRTCImage(sessionId, currentSequence, base64Data);
-                        console.log('[Capture] WebRTC image saved to:', imagePath);
-                    }
-                }
-                if (!imagePath) {
-                    throw new Error("Failed to capture WebRTC frame");
-                }
-            } else {
-                console.log('[Capture] Triggering dcc capture via Go...');
-                imagePath = await TriggerCapture(sessionId, currentSequence);
-                console.log('[Capture] dcc image captured to:', imagePath);
-            }
+            // Fetch the actual saved image from backend as Base64 so we can render it statically in the box!
+            const base64Data = await GetImageBase64(imagePath);
+            addCapturedImage(imagePath, base64Data);
 
-            console.log('[Capture] Adding to app store...');
-            addCapturedImage(imagePath);
-
-            // Wait a moment to show frozen frame, then proceed
-            setTimeout(() => {
-                console.log('[Capture] Resetting UI for next shot');
-                setFlashTrigger(false);
-                setFrozen(false);
-                setFrozenImage(null);
-                setCapturing(false);
-                incrementSequence();
-            }, 1500);
+            setFlashTrigger(false);
+            setFrozen(false);
+            setFrozenImage(null);
+            setCapturing(false);
+            incrementSequence();
         } catch (err) {
-            console.error('[Capture] FAILED:', err);
-            goToError('Camera capture failed. Please contact staff.');
+            goToError('Camera capture failed.');
         }
-    }, [previewMode, sessionId, currentSequence, addCapturedImage, incrementSequence, freezeFrame, goToError, capturing, ready]);
+    }, [sessionId, currentSequence, addCapturedImage, incrementSequence, capturing, ready, goToError]);
 
-
-    // Check if all shots are done
+    // Check Completion
     useEffect(() => {
         if (currentSequence >= totalShots && currentSequence > 0) {
-            const timer = setTimeout(async () => {
-                if (streamRef.current) {
-                    streamRef.current.getTracks().forEach((t) => t.stop());
-                }
-                if (pollingRef.current) {
-                    clearInterval(pollingRef.current);
-                }
-                // Stop live view before leaving so the camera exits live view mode
+            setTimeout(async () => {
+                if (pollingRef.current) clearInterval(pollingRef.current);
                 if (liveViewActiveRef.current) {
                     liveViewActiveRef.current = false;
-                    try { await StopLiveView(); } catch { /* best effort */ }
+                    try { await StopLiveView(); } catch { }
                 }
-                useAppStore.getState().goToFrame();
+                goToProcessing();
             }, 500);
-            return () => clearTimeout(timer);
         }
-    }, [currentSequence, totalShots]);
+    }, [currentSequence, totalShots, goToProcessing]);
 
+    // Dimensions setup for percentage mapping
+    const baseWidth = selectedTemplate === 'strip_2x6' ? 600 : 1200;
+    const baseHeight = 1800;
+
+    // We scale the display workspace based on window height so it fits on screen
+    const workspaceHeightMap = {
+        'strip_2x6': '80vh',
+        'postcard_4x6': '70vh'
+    };
+    const workspaceHeight = selectedTemplate ? workspaceHeightMap[selectedTemplate] : '80vh';
+    const workspaceAspect = `${baseWidth} / ${baseHeight}`;
 
     return (
         <div className="capture-screen">
-            <div className="capture-viewport">
-                {frozen && frozenImage ? (
-                    <img src={frozenImage} className="capture-frozen" alt="Captured" />
-                ) : previewMode === 'dcc' ? (
-                    <img
-                        ref={imgRef}
-                        className="capture-liveview"
-                        alt="Live View"
-                        src={`${liveViewURL}?t=${Date.now()}`}
-                    />
-                ) : previewMode === 'webrtc' ? (
-                    <video
-                        ref={videoRef}
-                        className="capture-video"
-                        autoPlay
-                        playsInline
-                        muted
-                    />
-                ) : (
-                    <div className="capture-loading">
-                        <div className="capture-loading-spinner" />
-                        <span>Connecting to camera...</span>
+            {/* Left Sidebar Menu */}
+            {!sessionStarted && (
+                <div className="capture-sidebar">
+                    <div className="capture-sidebar-header">
+                        <h2 className="capture-sidebar-title">Frames</h2>
+                        <p className="capture-sidebar-subtitle">Select a design!</p>
+                    </div>
+                    <div className="capture-sidebar-list">
+                        {frames.map((f) => (
+                            <div
+                                key={f.id}
+                                className={`capture-frame-card ${selectedFrame === f.id ? 'selected' : ''}`}
+                                onClick={() => selectFrame(f.id)}
+                            >
+                                <div
+                                    className="capture-frame-preview"
+                                    style={{
+                                        background: f.id === 'none' ? '#333' : `url('http://localhost:8080/frames/${f.id}.png') center/contain no-repeat`,
+                                    }}
+                                >
+                                    {f.id === 'none' && <span>🚫</span>}
+                                </div>
+                                <span className="capture-frame-label">{f.label}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Right Stage */}
+            <div className="capture-stage">
+                <div
+                    className="capture-workspace"
+                    style={{
+                        height: workspaceHeight,
+                        aspectRatio: workspaceAspect
+                    }}
+                >
+                    {/* The Transparent PNG on top */}
+                    {selectedFrame && selectedFrame !== 'none' && (
+                        <div
+                            className="capture-workspace-overlay"
+                            style={{ background: `url('http://localhost:8080/frames/${selectedFrame}.png') center/cover` }}
+                        />
+                    )}
+
+                    {/* The Dynamic Layout Boxes */}
+                    {frameConfig && frameConfig.layouts && frameConfig.layouts.map((layout: any, index: number) => {
+                        // Calculate percentage-based positioning so it scales perfectly with the workspace
+                        const leftPct = (layout.x / baseWidth) * 100;
+                        const topPct = (layout.y / baseHeight) * 100;
+                        const widthPct = (layout.width / baseWidth) * 100;
+                        const heightPct = (layout.height / baseHeight) * 100;
+
+                        return (
+                            <div
+                                key={index}
+                                className="capture-spot"
+                                style={{
+                                    left: `${leftPct}%`,
+                                    top: `${topPct}%`,
+                                    width: `${widthPct}%`,
+                                    height: `${heightPct}%`,
+                                }}
+                            >
+                                {index < currentSequence && capturedB64s[index] && (
+                                    <img src={capturedB64s[index]} alt={`Shot ${index + 1}`} style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }} />
+                                )}
+
+                                {index === currentSequence && sessionStarted && (
+                                    <>
+                                        {frozen && frozenImage ? (
+                                            <img src={frozenImage} alt="Frozen" style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }} />
+                                        ) : (
+                                            <img ref={imgRef} src={`${liveViewURL}?t=${Date.now()}`} alt="Live View" style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }} />
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        );
+                    })}
+
+                    {/* Fallback box if no layouts exist (e.g. "none" frame) */}
+                    {(!frameConfig || !frameConfig.layouts || selectedFrame === 'none') && sessionStarted && currentSequence < totalShots && (
+                        <div className="capture-spot" style={{ left: 0, top: 0, width: '100%', height: '100%' }}>
+                            {frozen && frozenImage ? (
+                                <img src={frozenImage} alt="Frozen" style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }} />
+                            ) : (
+                                <img ref={imgRef} src={`${liveViewURL}?t=${Date.now()}`} alt="Live View" style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }} />
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Controls overlay */}
+                <div className="capture-controls">
+                    {!sessionStarted ? (
+                        <button
+                            className="capture-start-btn"
+                            disabled={!ready}
+                            onClick={() => setSessionStarted(true)}
+                        >
+                            {ready ? 'Start Session! 📸' : 'Warming up camera...'}
+                        </button>
+                    ) : (
+                        ready && !frozen && !capturing && currentSequence < totalShots && (
+                            <>
+                                <button className="capture-action-btn" onClick={() => setIsMirrored(!isMirrored)}>
+                                    {isMirrored ? '🪞 Unmirror' : '🪞 Mirror'}
+                                </button>
+                                <button className="capture-button" onClick={handleCapture}>
+                                    <div className="capture-button-inner" />
+                                </button>
+                            </>
+                        )
+                    )}
+                </div>
+
+                {sessionStarted && (
+                    <div className="capture-status-badge">
+                        <div className="capture-counter">
+                            {Math.min(currentSequence + 1, totalShots)} / {totalShots}
+                        </div>
+                        <div className="capture-progress">
+                            {Array.from({ length: totalShots }).map((_, i) => (
+                                <div
+                                    key={i}
+                                    className={`capture-dot ${i < currentSequence ? 'done' : ''} ${i === currentSequence ? 'active' : ''}`}
+                                />
+                            ))}
+                        </div>
                     </div>
                 )}
             </div>
-
-            <div className="capture-info">
-                <div className="capture-counter">
-                    <span className="capture-current">{Math.min(currentSequence + 1, totalShots)}</span>
-                    <span className="capture-separator">/</span>
-                    <span className="capture-total">{totalShots}</span>
-                </div>
-                <div className="capture-progress">
-                    {Array.from({ length: totalShots }).map((_, i) => (
-                        <div
-                            key={i}
-                            className={`capture-dot ${i < currentSequence ? 'done' : ''} ${i === currentSequence ? 'active' : ''}`}
-                        />
-                    ))}
-                </div>
-            </div>
-
-            {ready && !frozen && !capturing && currentSequence < totalShots && (
-                <button className="capture-button" onClick={handleCapture}>
-                    <div className="capture-button-inner" />
-                </button>
-            )}
 
             <FlashOverlay trigger={flashTrigger} />
         </div>

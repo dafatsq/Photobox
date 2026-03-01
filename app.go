@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"photobox/admin"
 	"photobox/hardware"
 
 	xdraw "golang.org/x/image/draw"
@@ -21,22 +22,24 @@ import (
 
 // App struct holds the application state and hardware drivers.
 type App struct {
-	ctx     context.Context
-	camera  hardware.CameraDriver
-	printer hardware.PrinterDriver
-	dataDir string // directory to store session outputs
+	ctx      context.Context
+	camera   hardware.CameraDriver
+	printer  hardware.PrinterDriver
+	dataDir  string // directory to store session outputs
+	adminCfg *admin.AdminConfig
 }
 
 // NewApp creates a new App application struct.
-func NewApp(camera hardware.CameraDriver, printer hardware.PrinterDriver) *App {
+func NewApp(camera hardware.CameraDriver, printer hardware.PrinterDriver, adminCfg *admin.AdminConfig) *App {
 	homeDir, _ := os.UserHomeDir()
 	dataDir := filepath.Join(homeDir, "PhotoboxData")
 	os.MkdirAll(dataDir, 0755)
 
 	return &App{
-		camera:  camera,
-		printer: printer,
-		dataDir: dataDir,
+		camera:   camera,
+		printer:  printer,
+		dataDir:  dataDir,
+		adminCfg: adminCfg,
 	}
 }
 
@@ -44,6 +47,16 @@ func NewApp(camera hardware.CameraDriver, printer hardware.PrinterDriver) *App {
 // so we can call the runtime methods.
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+}
+
+// IsPaymentBypassed returns true if the admin has enabled payment bypass.
+func (a *App) IsPaymentBypassed() bool {
+	return a.adminCfg.GetBypassPayment()
+}
+
+// GetFrames returns the current list of available frames from admin config.
+func (a *App) GetFrames() []admin.Frame {
+	return a.adminCfg.GetFrames()
 }
 
 // CheckPaymentStatus checks the QRIS webhook for a given transaction ID.

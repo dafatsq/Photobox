@@ -10,8 +10,16 @@ export function GetDataDir() {
   return window['go']['main']['App']['GetDataDir']();
 }
 
+export function GetFrames() {
+  return window['go']['main']['App']['GetFrames']();
+}
+
 export function GetLiveViewURL() {
   return window['go']['main']['App']['GetLiveViewURL']();
+}
+
+export function IsPaymentBypassed() {
+  return window['go']['main']['App']['IsPaymentBypassed']();
 }
 
 export function PrintPhoto(arg1) {

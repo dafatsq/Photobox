@@ -99,7 +99,7 @@ const CaptureScreen: React.FC = () => {
     useEffect(() => {
         if (previewMode !== 'dcc' || !liveViewURL || frozen) return;
 
-        // Poll every 100ms for ~10fps live view
+        // Poll every 66ms for ~15fps live view, taking advantage of smaller image size
         pollingRef.current = setInterval(() => {
             if (imgRef.current && !frozen) {
                 imgRef.current.src = `${liveViewURL}?t=${Date.now()}`;

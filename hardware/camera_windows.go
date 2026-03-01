@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -31,9 +32,17 @@ func NewWinCamera() *WinCamera {
 
 // Capture triggers a capture via digiCamControl's scripting HTTP API and downloads the result.
 func (w *WinCamera) Capture(filename string) error {
-	// Get the current file count so we can detect the new image after capture
-	countBefore, err0 := w.getFileCount()
-	println("[DCC] File count before capture:", countBefore, "err:", fmt.Sprint(err0))
+	// Get the DCC session folder and count existing .jpg files before capture
+	sessionFolder, err := w.getDCCSessionFolder()
+	if err != nil {
+		println("[DCC] Could not get session folder:", err.Error(), "— trying filelist fallback")
+		sessionFolder = ""
+	}
+	println("[DCC] Session folder:", sessionFolder)
+
+	// Count existing files before capture (for comparison)
+	filesBefore := w.listJPEGs(sessionFolder)
+	println("[DCC] Files before capture:", len(filesBefore))
 
 	// Send capture command via dcc's scripting API (slc=capture)
 	println("[DCC] Sending slc=capture request...")
@@ -50,33 +59,128 @@ func (w *WinCamera) Capture(filename string) error {
 		return fmt.Errorf("digiCamControl capture failed (HTTP %d): %s", resp.StatusCode, string(body))
 	}
 
-	// Poll until a new image appears in the file list (up to 15s)
-	println("[DCC] Polling for new image...")
-	deadline := time.Now().Add(15 * time.Second)
+	// Poll until a new .jpg file appears in the session folder (up to 20s)
+	println("[DCC] Polling for new image in folder:", sessionFolder)
+	deadline := time.Now().Add(20 * time.Second)
+	var newestFile string
 	for time.Now().Before(deadline) {
-		count, err := w.getFileCount()
-		println("[DCC] File count:", count, "err:", fmt.Sprint(err))
-		if err == nil && count > countBefore {
-			println("[DCC] New image detected! count:", count)
+		filesAfter := w.listJPEGs(sessionFolder)
+		println("[DCC] Files after capture:", len(filesAfter))
+		// Look for a file not present before
+		for _, f := range filesAfter {
+			found := false
+			for _, bf := range filesBefore {
+				if f == bf {
+					found = true
+					break
+				}
+			}
+			if !found {
+				newestFile = f
+				println("[DCC] New file detected:", newestFile)
+				break
+			}
+		}
+		if newestFile != "" {
 			break
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
 
-	// Download the last captured image from digiCamControl
-	println("[DCC] Downloading last capture to:", filename)
-	return w.downloadLastCapture(filename)
+	if newestFile == "" {
+		// Fallback: try filelist.json as last resort
+		println("[DCC] No new filesystem file found, trying filelist.json fallback...")
+		return w.downloadLastCapture(filename)
+	}
+
+	println("[DCC] Copying", newestFile, "to", filename)
+	return w.copyFile(newestFile, filename)
+}
+
+// getDCCSessionFolder queries DCC for the current session's save folder.
+func (w *WinCamera) getDCCSessionFolder() (string, error) {
+	resp, err := w.client.Get(dccBaseURL + "/?slc=get&param1=session.folder")
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	folder := strings.TrimSpace(string(b))
+	if folder == "" || folder == "null" {
+		return "", fmt.Errorf("DCC returned empty session folder")
+	}
+	return folder, nil
+}
+
+// listJPEGs returns all .jpg files in the given directory (non-recursive).
+func (w *WinCamera) listJPEGs(dir string) []string {
+	if dir == "" {
+		return nil
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var files []string
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(strings.ToLower(e.Name()), ".jpg") {
+			files = append(files, dir+"\\"+e.Name())
+		}
+	}
+	return files
+}
+
+// copyFile copies src to dst, retrying if the source is still locked by DCC.
+func (w *WinCamera) copyFile(src, dst string) error {
+	var in *os.File
+	var err error
+	// Retry up to 10 times (5 seconds) in case DCC still has the file open
+	for i := 0; i < 10; i++ {
+		in, err = os.Open(src)
+		if err == nil {
+			break
+		}
+		println("[DCC] File still locked, retrying in 500ms...", err.Error())
+		time.Sleep(500 * time.Millisecond)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to open source file after retries: %w", err)
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("failed to create destination file: %w", err)
+	}
+	defer out.Close()
+
+	n, err := io.Copy(out, in)
+	println("[DCC] Bytes copied:", n)
+	return err
 }
 
 // getFileCount returns the number of files in dcc's current session.
+// An empty body (EOF) is treated as 0 files rather than an error.
 func (w *WinCamera) getFileCount() (int, error) {
 	resp, err := w.client.Get(dccBaseURL + "/filelist.json")
 	if err != nil {
 		return 0, err
 	}
-	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		return 0, err
+	}
+	// DCC returns an empty body when the session has no images yet — treat as 0
+	body = []byte(strings.TrimSpace(string(body)))
+	if len(body) == 0 || string(body) == "null" {
+		return 0, nil
+	}
 	var files []dccFileItem
-	if err := json.NewDecoder(resp.Body).Decode(&files); err != nil {
+	if err := json.Unmarshal(body, &files); err != nil {
 		return 0, err
 	}
 	return len(files), nil
@@ -147,7 +251,7 @@ func (w *WinCamera) LiveViewURL() string {
 		return "" // Return empty to trigger WebRTC fallback in frontend
 	}
 	resp.Body.Close()
-	return dccBaseURL + "/liveviewwebcam.jpg"
+	return dccBaseURL + "/liveviewwebcam.jpg?width=480"
 }
 
 // StartLiveView tells digiCamControl to open its Live View window,

@@ -4,6 +4,8 @@ import (
 	"embed"
 	"os"
 
+	"photobox/admin"
+
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -16,8 +18,14 @@ func main() {
 	// Enable WebView2 camera/media access without permission prompts
 	os.Setenv("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-media-stream --use-fake-ui-for-media-stream")
 
+	// Create shared admin config
+	adminCfg := admin.NewAdminConfig()
+
+	// Start admin dashboard on port 8080 (separate browser window)
+	go admin.StartAdminServer(adminCfg, 8080)
+
 	// Create an instance of the app with platform-specific hardware drivers
-	app := NewPlatformApp()
+	app := NewPlatformApp(adminCfg)
 
 	// Create application with kiosk-oriented options
 	err := wails.Run(&options.App{

@@ -1,20 +1,34 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../store/appStore';
+import { GetFrames } from '../../wailsjs/go/main/App';
 import './FrameScreen.css';
 
-const frames = [
-    { id: 'none', label: 'No Frame', color: 'transparent' },
-    { id: 'classic_black', label: 'Classic Black', color: '#1a1a1a' },
-    { id: 'classic_white', label: 'Classic White', color: '#ffffff' },
-    { id: 'neon_pink', label: 'Neon Pink', color: '#ff2a6d' },
-    { id: 'neon_blue', label: 'Neon Blue', color: '#05d9e8' },
-    { id: 'vintage_gold', label: 'Vintage Gold', color: '#d4af37' }
-];
+interface FrameOption {
+    id: string;
+    label: string;
+    color: string;
+}
 
 const FrameScreen: React.FC = () => {
     const selectFrame = useAppStore((s) => s.selectFrame);
     const selectedFrame = useAppStore((s) => s.selectedFrame);
     const goToProcessing = useAppStore((s) => s.goToProcessing);
+
+    const [frames, setFrames] = useState<FrameOption[]>([]);
+
+    // Load frames from Go backend (admin config)
+    useEffect(() => {
+        GetFrames()
+            .then((data) => setFrames(data || []))
+            .catch((err) => {
+                console.error('Failed to load frames:', err);
+                // Fallback to basic frames
+                setFrames([
+                    { id: 'none', label: 'No Frame', color: 'transparent' },
+                    { id: 'classic_black', label: 'Classic Black', color: '#1a1a1a' },
+                ]);
+            });
+    }, []);
 
     const handleSelect = (id: string) => {
         selectFrame(id);

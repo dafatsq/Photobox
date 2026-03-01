@@ -78,8 +78,8 @@ code{background:rgba(0,0,0,.3);padding:2px 6px;border-radius:4px;font-size:.8rem
 .input-group input { background: #0f172a; border: 1px solid #334155; color: #e2e8f0; padding: .4rem; border-radius: 4px; font-family: monospace; font-size: .85rem; width: 100%; }
 .input-group input:focus { border-color: #6366f1; outline: none; }
 
-.editor-canvas-wrap { flex: 1; background: #0f172a; border-radius: 8px; border: 1px solid #334155; position: relative; overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding: 4rem 2rem 2rem 2rem; }
-.editor-canvas { position: relative; background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.5); transform-origin: top center; transition: transform 0.1s; }
+.editor-canvas-wrap { flex: 1; background: #0f172a; border-radius: 8px; border: 1px solid #334155; position: relative; overflow: auto; padding: 2rem; }
+.editor-canvas { position: relative; background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.5); transform-origin: top left; transition: zoom 0.1s; flex-shrink: 0; margin: 0 auto; }
 .editor-canvas img { display: block; width: 100%; height: 100%; pointer-events: none; }
 .canvas-box { position: absolute; border: 2px dashed rgba(255,42,109,0.5); background: rgba(255,42,109,0.1); display: flex; align-items: center; justify-content: center; font-weight: bold; color: rgba(255,255,255,0.5); text-shadow: 0 1px 3px rgba(0,0,0,0.8); font-size: 1.5rem; cursor: move; transition: border-color .2s, background .2s, color .2s; }
 .canvas-box:hover { border-color: #05d9e8; background: rgba(5,217,232,0.3); color: #fff; z-index: 10; }
@@ -152,7 +152,7 @@ code{background:rgba(0,0,0,.3);padding:2px 6px;border-radius:4px;font-size:.8rem
       </div>
       <div class="editor-canvas-wrap" id="canvasWrap">
         <!-- Scale controls -->
-        <div style="position:absolute; top:1rem; left:1rem; z-index:9; display:flex; gap:.5rem;">
+        <div style="position:sticky; top:0; left:0; z-index:9; display:flex; gap:.5rem; margin-bottom: 1rem; align-self: flex-start; justify-content: flex-start; width: 100%;">
           <button class="btn btn-sm" onclick="zoomCanvas(0.1)">Zoom In</button>
           <button class="btn btn-sm" onclick="zoomCanvas(-0.1)">Zoom Out</button>
         </div>
@@ -318,16 +318,23 @@ function openEditor(id) {
   canvas.style.width = w + 'px';
   canvas.style.height = h + 'px';
   
-  // Calculate initial zoom to fit wrap width primarily, so it doesn't become microscopic
-  const wrap = document.getElementById('canvasWrap');
-  const scaleX = (wrap.clientWidth - 40) / w;
-  activeTemplateScale = Math.max(0.25, Math.min(scaleX, 1));
-  updateCanvasTransform();
+  document.getElementById('layoutModal').classList.add('show');
+
+  // Need to wait until modal is visible so clientWidth isn't 0
+  setTimeout(() => {
+    const wrap = document.getElementById('canvasWrap');
+    // If clientWidth is valid, calculate fit. Provide a fallback if it's still weird.
+    let wrapW = wrap.clientWidth;
+    if (wrapW < 100) wrapW = window.innerWidth - 350; // fallback width minus sidebar
+    
+    // Default strictly to 1.0 (100% size) or a math calculation, but 1.0 is safest for 600px widths
+    // on typical displays to ensure it's not microscopic.
+    activeTemplateScale = 1.0;
+    updateCanvasTransform();
+  }, 50);
 
   renderSidebarInputs();
   renderCanvasOverlays();
-  
-  document.getElementById('layoutModal').classList.add('show');
 }
 
 function closeEditor() {
@@ -336,12 +343,15 @@ function closeEditor() {
 }
 
 function zoomCanvas(delta) {
-  activeTemplateScale = Math.max(0.25, Math.min(3, activeTemplateScale + delta));
+  activeTemplateScale = Math.max(0.25, Math.min(3.0, activeTemplateScale + delta));
   updateCanvasTransform();
 }
 
 function updateCanvasTransform() {
-  document.getElementById('canvas').style.transform = 'scale(' + activeTemplateScale + ')';
+  // Use CSS zoom property or transform with explicit origin.
+  // Transform scale is safer across browsers, but requires the wrapper to adjust.
+  // Zoom is preferred here because it affects layout flow and allows scrolling safely.
+  document.getElementById('canvas').style.zoom = activeTemplateScale;
 }
 
 function renderSidebarInputs() {
@@ -376,11 +386,15 @@ function renderCanvasOverlays() {
   ).join('');
 }
 
-// --- Drag & Drop / Resize Logic for Canvas ---
+// --- Drag & Drop / Resize / Pan Logic for Canvas ---
 let isDragging = false;
 let isResizing = false;
+let isPanning = false;
 let dragStartX, dragStartY;
 let initialLayout = null;
+
+// Panning variables
+let panStartX, panStartY, panScrollLeft, panScrollTop;
 
 const canvasWrap = document.getElementById('canvasWrap');
 
@@ -393,6 +407,17 @@ canvasWrap.addEventListener('mousedown', (e) => {
     isDragging = true;
     activeIndex = parseInt(e.target.dataset.idx, 10);
     startDrag(e);
+  } else {
+    // Start panning if clicking the empty canvas space
+    e.preventDefault(); // Prevent native browser dragging or text selection
+    isPanning = true;
+    panStartX = e.clientX;
+    panStartY = e.clientY;
+    panScrollLeft = canvasWrap.scrollLeft;
+    panScrollTop = canvasWrap.scrollTop;
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    canvasWrap.style.cursor = 'grabbing';
   }
 });
 
@@ -407,8 +432,16 @@ function startDrag(e) {
 }
 
 function onMouseMove(e) {
-  if (!isDragging && !isResizing) return;
+  if (!isDragging && !isResizing && !isPanning) return;
   e.preventDefault();
+  
+  if (isPanning) {
+    const dx = e.clientX - panStartX;
+    const dy = e.clientY - panStartY;
+    canvasWrap.scrollLeft = panScrollLeft - dx;
+    canvasWrap.scrollTop = panScrollTop - dy;
+    return;
+  }
   
   const dx = (e.clientX - dragStartX) / activeTemplateScale;
   const dy = (e.clientY - dragStartY) / activeTemplateScale;
@@ -445,9 +478,11 @@ function onMouseMove(e) {
 function onMouseUp(e) {
   isDragging = false;
   isResizing = false;
+  isPanning = false;
   activeIndex = -1;
   document.removeEventListener('mousemove', onMouseMove);
   document.removeEventListener('mouseup', onMouseUp);
+  canvasWrap.style.cursor = ''; // reset cursor if we were grab-panning
   renderCanvasOverlays(); // final precise sync
 }
 

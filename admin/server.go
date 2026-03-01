@@ -81,10 +81,11 @@ code{background:rgba(0,0,0,.3);padding:2px 6px;border-radius:4px;font-size:.8rem
 .editor-canvas-wrap { flex: 1; background: #0f172a; border-radius: 8px; border: 1px solid #334155; position: relative; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 2rem; }
 .editor-canvas { position: relative; background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.5); transform-origin: center; transition: transform 0.1s; }
 .editor-canvas img { display: block; width: 100%; height: 100%; pointer-events: none; }
-.canvas-box { position: absolute; border: 2px dashed #ff2a6d; background: rgba(255,42,109,0.3); display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.8); font-size: 1.5rem; cursor: move; }
-.canvas-box.active { border-color: #05d9e8; background: rgba(5,217,232,0.3); z-index: 10; }
-.resize-handle { position: absolute; width: 12px; height: 12px; background: #fff; border: 2px solid #05d9e8; right: -6px; bottom: -6px; cursor: nwse-resize; border-radius: 50%; display: none; }
-.canvas-box.active .resize-handle { display: block; }
+.canvas-box { position: absolute; border: 2px dashed rgba(255,42,109,0.5); background: rgba(255,42,109,0.1); display: flex; align-items: center; justify-content: center; font-weight: bold; color: rgba(255,255,255,0.5); text-shadow: 0 1px 3px rgba(0,0,0,0.8); font-size: 1.5rem; cursor: move; transition: border-color .2s, background .2s, color .2s; }
+.canvas-box:hover { border-color: #05d9e8; background: rgba(5,217,232,0.3); color: #fff; z-index: 10; }
+.resize-handle { position: absolute; width: 30px; height: 30px; right: -10px; bottom: -10px; cursor: nwse-resize; z-index: 15; }
+.resize-handle::after { content: ''; position: absolute; width: 12px; height: 12px; border-right: 4px solid #05d9e8; border-bottom: 4px solid #05d9e8; right: 10px; bottom: 10px; opacity: 0; transition: opacity .2s; }
+.canvas-box:hover .resize-handle::after, .resize-handle:hover::after { opacity: 1; }
 
 .btn { background: #6366f1; color: #fff; border: none; padding: .5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; width: 100%; margin-top: 1rem; transition: background .2s; }
 .btn:hover { background: #4f46e5; }
@@ -347,7 +348,7 @@ function updateCanvasTransform() {
 function renderSidebarInputs() {
   const s = document.getElementById('sidebarInputs');
   s.innerHTML = activeLayouts.map((lo, i) =>
-    '<div class="layout-card" onmouseenter="highlightBox(' + i + ')" onmouseleave="highlightBox(-1)">' +
+    '<div class="layout-card">' +
       '<h4>Photo ' + (i+1) + '</h4>' +
       '<div class="input-grid">' +
         '<div class="input-group"><label>X</label><input type="number" value="' + lo.x + '" onchange="updateVal(' + i + ', \'x\', this.value)"></div>' +
@@ -367,18 +368,13 @@ function updateVal(idx, key, val) {
 function renderCanvasOverlays() {
   const container = document.getElementById('canvasOverlays');
   container.innerHTML = activeLayouts.map((lo, i) =>
-    '<div class="canvas-box ' + (activeIndex === i ? 'active' : '') + '" ' +
+    '<div class="canvas-box" ' +
          'style="left:' + lo.x + 'px; top:' + lo.y + 'px; width:' + lo.width + 'px; height:' + lo.height + 'px;" ' +
          'data-idx="' + i + '">' +
       (i+1) +
       '<div class="resize-handle" data-idx="' + i + '"></div>' +
     '</div>'
   ).join('');
-}
-
-function highlightBox(idx) {
-  activeIndex = idx;
-  renderCanvasOverlays();
 }
 
 // --- Drag & Drop / Resize Logic for Canvas ---
@@ -397,11 +393,7 @@ canvasWrap.addEventListener('mousedown', (e) => {
   } else if (e.target.classList.contains('canvas-box')) {
     isDragging = true;
     activeIndex = parseInt(e.target.dataset.idx, 10);
-    renderCanvasOverlays(); // update active class
     startDrag(e);
-  } else {
-    activeIndex = -1;
-    renderCanvasOverlays();
   }
 });
 
@@ -428,19 +420,36 @@ function onMouseMove(e) {
     lo.x = Math.round(initialLayout.x + dx);
     lo.y = Math.round(initialLayout.y + dy);
   } else if (isResizing) {
-    lo.width = Math.max(10, Math.round(initialLayout.width + dx));
-    lo.height = Math.max(10, Math.round(initialLayout.height + dy));
+    const ratio = initialLayout.width / initialLayout.height;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      lo.width = Math.max(10, Math.round(initialLayout.width + dx));
+      lo.height = Math.max(10, Math.round(lo.width / ratio));
+    } else {
+      lo.height = Math.max(10, Math.round(initialLayout.height + dy));
+      lo.width = Math.max(10, Math.round(lo.height * ratio));
+    }
   }
   
-  renderCanvasOverlays();
-  renderSidebarInputs(); // Keep numbers in sync
+  // Directly manipulate DOM elements for performance during drag instead of re-rendering innerHTML completely
+  const box = document.querySelector('.canvas-box[data-idx="' + activeIndex + '"]');
+  if (box) {
+    box.style.left = lo.x + 'px';
+    box.style.top = lo.y + 'px';
+    box.style.width = lo.width + 'px';
+    box.style.height = lo.height + 'px';
+  }
+  
+  // Debounce sidebar input updates slightly to avoid destroying focus if user is typing
+  renderSidebarInputs();
 }
 
 function onMouseUp(e) {
   isDragging = false;
   isResizing = false;
+  activeIndex = -1;
   document.removeEventListener('mousemove', onMouseMove);
   document.removeEventListener('mouseup', onMouseUp);
+  renderCanvasOverlays(); // final precise sync
 }
 
 async function saveLayouts() {

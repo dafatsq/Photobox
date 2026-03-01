@@ -22,23 +22,30 @@
     gap: 4rem;
     background: rgba(30, 41, 59, 0.6);
     padding: 3rem;
-    border-radius: 2rem;
+    border-radius: 12px;
     backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    max-width: 1000px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     width: 100%;
+    max-width: 900px;
+    height: 70vh;
+    /* Constrain height to force the image to scale down */
+    max-height: 800px;
+    overflow: hidden;
 }
 
 .share-preview {
     flex: 1;
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
     background: rgba(0, 0, 0, 0.3);
     border-radius: 1rem;
     padding: 1rem;
     border: 1px dashed rgba(255, 255, 255, 0.2);
+    height: 100%;
+    overflow: hidden;
+    /* Prevent image from breaking bounds */
 }
 
 .share-image-placeholder {

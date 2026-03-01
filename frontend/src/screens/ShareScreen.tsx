@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../store/appStore';
-import { SendEmail } from '../../wailsjs/go/main/App';
+import { SendEmail, GetImageBase64 } from '../../wailsjs/go/main/App';
 import './ShareScreen.css';
 
 const ShareScreen: React.FC = () => {
@@ -11,16 +11,15 @@ const ShareScreen: React.FC = () => {
     const [email, setEmail] = useState('');
     const [sending, setSending] = useState(false);
     const [sent, setSent] = useState(false);
+    const [b64Image, setB64Image] = useState('');
 
-    // Convert local absolute path to wails local proxy URL for display
-    const getAssetUrl = (path: string) => {
-        if (!path) return '';
-        // Wails v2 specific asset protocol mapping: /wails/asset/... or similar is handled natively usually
-        // Actually, returning just the path often doesn't work directly in img src without custom protocol
-        // Wails translates assetserver requests. We can use a custom api or just assume simple asset serving.
-        // For now, in Wails v2:
-        return 'http://wails.localhost/' + path.replace(/\\/g, '/');
-    };
+    useEffect(() => {
+        if (compositeImagePath) {
+            GetImageBase64(compositeImagePath)
+                .then(b64 => setB64Image(b64))
+                .catch(err => console.error("Failed to load image base64:", err));
+        }
+    }, [compositeImagePath]);
 
     const handleSendEmail = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -51,13 +50,16 @@ const ShareScreen: React.FC = () => {
 
             <div className="share-content">
                 <div className="share-preview">
-                    {compositeImagePath ? (
-                        <div className="share-image-placeholder">
-                            <span>Final Photo Saved to:</span>
-                            <p className="share-path">{compositeImagePath}</p>
+                    {b64Image ? (
+                        <div className="share-image-container" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <img
+                                src={b64Image}
+                                alt="Final Photo"
+                                style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}
+                            />
                         </div>
                     ) : (
-                        <div className="share-image-placeholder">No Image Available</div>
+                        <div className="share-image-placeholder">Loading Image...</div>
                     )}
                 </div>
 

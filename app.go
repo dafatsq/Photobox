@@ -290,6 +290,26 @@ func (a *App) SendEmail(imagePath string, emailAddress string) error {
 	return nil
 }
 
+// GetImageBase64 reads a local file and returns its base64 data URI so the frontend can display it.
+func (a *App) GetImageBase64(filePath string) (string, error) {
+	if filePath == "" {
+		return "", fmt.Errorf("empty file path")
+	}
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file: %w", err)
+	}
+
+	mimeType := "image/jpeg"
+	if strings.HasSuffix(strings.ToLower(filePath), ".png") {
+		mimeType = "image/png"
+	}
+
+	b64 := base64.StdEncoding.EncodeToString(data)
+	return fmt.Sprintf("data:%s;base64,%s", mimeType, b64), nil
+}
+
 // PrintPhoto triggers a silent print of the final composite image.
 func (a *App) PrintPhoto(finalImagePath string) error {
 	if finalImagePath == "" {

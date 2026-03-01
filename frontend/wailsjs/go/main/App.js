@@ -14,6 +14,10 @@ export function GetFrames() {
   return window['go']['main']['App']['GetFrames']();
 }
 
+export function GetImageBase64(arg1) {
+  return window['go']['main']['App']['GetImageBase64'](arg1);
+}
+
 export function GetLiveViewURL() {
   return window['go']['main']['App']['GetLiveViewURL']();
 }

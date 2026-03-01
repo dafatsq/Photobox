@@ -8,6 +8,8 @@ export function GetDataDir():Promise<string>;
 
 export function GetFrames():Promise<Array<admin.Frame>>;
 
+export function GetImageBase64(arg1:string):Promise<string>;
+
 export function GetLiveViewURL():Promise<string>;
 
 export function IsPaymentBypassed():Promise<boolean>;

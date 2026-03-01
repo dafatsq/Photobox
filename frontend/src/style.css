@@ -74,3 +74,35 @@ button {
     border: none;
     background: none;
 }
+
+/* Universal Back Button */
+.global-back-btn {
+    position: absolute;
+    top: 2rem;
+    left: 2rem;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    z-index: 1000;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.global-back-btn:hover {
+    transform: scale(1.1) translateX(-2px);
+    background: rgba(15, 23, 42, 0.9);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.global-back-btn:active {
+    transform: scale(0.95);
+}

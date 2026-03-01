@@ -121,3 +121,93 @@
     margin: 0;
     text-align: center;
 }
+
+/* Confirmation Popup Styles */
+.template-confirm-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.template-confirm-modal {
+    background: #1a1025;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    border-radius: 24px;
+    padding: 2.5rem;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    animation: modal-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes modal-pop {
+    0% {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.template-confirm-modal h3 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 1rem;
+}
+
+.template-confirm-modal p {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 2rem;
+    line-height: 1.5;
+}
+
+.template-confirm-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.template-confirm-actions button {
+    padding: 0.8rem 1.5rem;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: 'Outfit', sans-serif;
+    transition: all 0.2s ease;
+}
+
+.template-btn-stay {
+    background: rgba(139, 92, 246, 0.2);
+    color: #a78bfa;
+    border: 1px solid rgba(139, 92, 246, 0.4);
+}
+
+.template-btn-stay:hover {
+    background: rgba(139, 92, 246, 0.4);
+    transform: translateY(-2px);
+}
+
+.template-btn-cancel {
+    background: #ef4444;
+    color: white;
+    border: 1px solid #dc2626;
+}
+
+.template-btn-cancel:hover {
+    background: #dc2626;
+    transform: translateY(-2px);
+}

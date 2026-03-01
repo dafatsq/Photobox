@@ -7,6 +7,7 @@ const PaymentScreen: React.FC = () => {
     const sessionId = useAppStore((s) => s.sessionId);
     const goToTemplate = useAppStore((s) => s.goToTemplate);
     const goToError = useAppStore((s) => s.goToError);
+    const reset = useAppStore((s) => s.reset);
     const [polling, setPolling] = useState(true);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -33,6 +34,7 @@ const PaymentScreen: React.FC = () => {
 
     return (
         <div className="payment-screen">
+            <button className="global-back-btn" onClick={reset}>←</button>
             <div className="payment-card">
                 <div className="payment-icon">💳</div>
                 <h2 className="payment-title">Scan to Pay</h2>

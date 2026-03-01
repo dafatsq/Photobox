@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppStore, TemplateType } from '../store/appStore';
 import './TemplateScreen.css';
 
@@ -22,6 +22,9 @@ const templates: { id: TemplateType; label: string; description: string; icon: s
 const TemplateScreen: React.FC = () => {
     const selectTemplate = useAppStore((s) => s.selectTemplate);
     const goToCapture = useAppStore((s) => s.goToCapture);
+    const goToPayment = useAppStore((s) => s.goToPayment);
+
+    const [showConfirmPopup, setShowConfirmPopup] = useState(false);
 
     const handleSelect = (id: TemplateType) => {
         selectTemplate(id);
@@ -30,6 +33,22 @@ const TemplateScreen: React.FC = () => {
 
     return (
         <div className="template-screen">
+            <button className="global-back-btn" onClick={() => setShowConfirmPopup(true)}>←</button>
+
+            {/* Confirmation Popup */}
+            {showConfirmPopup && (
+                <div className="template-confirm-overlay">
+                    <div className="template-confirm-modal">
+                        <h3>Cancel Session?</h3>
+                        <p>Are you sure you want to go back? This will cancel your current paid session.</p>
+                        <div className="template-confirm-actions">
+                            <button className="template-btn-stay" onClick={() => setShowConfirmPopup(false)}>No, Stay</button>
+                            <button className="template-btn-cancel" onClick={goToPayment}>Yes, Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="template-header">
                 <h2 className="template-title">Choose Your Layout</h2>
                 <p className="template-subtitle">Select a photo template to get started</p>

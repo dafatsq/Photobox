@@ -7,6 +7,7 @@ const ShareScreen: React.FC = () => {
     const compositeImagePath = useAppStore((s) => s.compositeImagePath);
     const goToDone = useAppStore((s) => s.goToDone);
     const goToError = useAppStore((s) => s.goToError);
+    const reset = useAppStore((s) => s.reset);
 
     const [email, setEmail] = useState('');
     const [sending, setSending] = useState(false);
@@ -46,6 +47,7 @@ const ShareScreen: React.FC = () => {
 
     return (
         <div className="share-screen">
+            <button className="global-back-btn" onClick={reset} title="Go Home">🏠</button>
             <h2 className="share-title">Your Photo is Ready!</h2>
 
             <div className="share-content">

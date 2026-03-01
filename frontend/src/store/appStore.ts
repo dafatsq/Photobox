@@ -22,6 +22,7 @@ interface AppStore {
   selectedFrame: string | null;
   capturedImages: string[];
   capturedB64s: string[];
+  capturedMirrored: boolean[];
   compositeImagePath: string | null;
   currentSequence: number;
   totalShots: number;
@@ -34,7 +35,7 @@ interface AppStore {
   goToTemplate: () => void;
   selectTemplate: (template: TemplateType) => void;
   goToCapture: () => void;
-  setCapturedImage: (index: number, path: string, b64: string) => void;
+  setCapturedImage: (index: number, path: string, b64: string, isMirrored: boolean) => void;
   setCurrentSequence: (index: number) => void;
   selectFrame: (frameId: string) => void;
   goToProcessing: () => void;
@@ -44,6 +45,7 @@ interface AppStore {
   goToError: (message: string) => void;
   reset: () => void;
   incrementSequence: () => void;
+  toggleAllMirrors: () => void;
 }
 
 function generateSessionId(): string {
@@ -68,6 +70,7 @@ export const useAppStore = create<AppStore>((set) => ({
   selectedFrame: null,
   capturedImages: [],
   capturedB64s: [],
+  capturedMirrored: [],
   compositeImagePath: null,
   currentSequence: 0,
   totalShots: 4,
@@ -79,6 +82,7 @@ export const useAppStore = create<AppStore>((set) => ({
       sessionId: generateSessionId(),
       capturedImages: [],
       capturedB64s: [],
+      capturedMirrored: [],
       compositeImagePath: null,
       currentSequence: 0,
       errorMessage: '',
@@ -96,13 +100,15 @@ export const useAppStore = create<AppStore>((set) => ({
   goToCapture: () =>
     set({ currentState: 'capture', currentSequence: 0 }),
 
-  setCapturedImage: (index: number, path: string, b64: string) =>
+  setCapturedImage: (index: number, path: string, b64: string, isMirrored: boolean) =>
     set((state) => {
       const newImages = [...state.capturedImages];
       const newB64s = [...state.capturedB64s];
+      const newMirrored = [...state.capturedMirrored];
       newImages[index] = path;
       newB64s[index] = b64;
-      return { capturedImages: newImages, capturedB64s: newB64s };
+      newMirrored[index] = isMirrored;
+      return { capturedImages: newImages, capturedB64s: newB64s, capturedMirrored: newMirrored };
     }),
 
   incrementSequence: () =>
@@ -139,8 +145,14 @@ export const useAppStore = create<AppStore>((set) => ({
       selectedFrame: null,
       capturedImages: [],
       capturedB64s: [],
+      capturedMirrored: [],
       compositeImagePath: null,
       currentSequence: 0,
       errorMessage: '',
     }),
+
+  toggleAllMirrors: () =>
+    set((state) => ({
+      capturedMirrored: state.capturedMirrored.map((mirrored) => !mirrored)
+    })),
 }));

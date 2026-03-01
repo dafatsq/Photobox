@@ -16,12 +16,16 @@ const CaptureScreen: React.FC = () => {
     const selectedTemplate = useAppStore((s) => s.selectedTemplate);
     const setCapturedImage = useAppStore((s) => s.setCapturedImage);
     const setCurrentSequence = useAppStore((s) => s.setCurrentSequence);
-    const incrementSequence = useAppStore((s) => s.incrementSequence);
     const selectFrame = useAppStore((s) => s.selectFrame);
     const selectedFrame = useAppStore((s) => s.selectedFrame);
+    const incrementSequence = useAppStore((s) => s.incrementSequence);
     const capturedB64s = useAppStore((s) => s.capturedB64s);
+    const capturedMirrored = useAppStore((s) => s.capturedMirrored);
     const goToProcessing = useAppStore((s) => s.goToProcessing);
     const goToError = useAppStore((s) => s.goToError);
+    const goToTemplate = useAppStore((s) => s.goToTemplate);
+    const reset = useAppStore((s) => s.reset);
+    const toggleAllMirrors = useAppStore((s) => s.toggleAllMirrors);
 
     const imgRef = useRef<HTMLImageElement>(null);
     const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -131,7 +135,7 @@ const CaptureScreen: React.FC = () => {
 
             // Fetch the actual saved image from backend as Base64 so we can render it statically in the box!
             const base64Data = await GetImageBase64(imagePath);
-            setCapturedImage(currentSequence, imagePath, base64Data);
+            setCapturedImage(currentSequence, imagePath, base64Data, isMirrored);
 
             setFlashTrigger(false);
             setFrozen(false);
@@ -150,7 +154,7 @@ const CaptureScreen: React.FC = () => {
             setFrozen(false);
             goToError('Camera capture failed.');
         }
-    }, [sessionId, currentSequence, setCapturedImage, capturedB64s.length, totalShots, setCurrentSequence, incrementSequence, goToError]);
+    }, [sessionId, currentSequence, setCapturedImage, capturedB64s.length, totalShots, setCurrentSequence, incrementSequence, goToError, isMirrored]);
 
     const handleCapture = useCallback(() => {
         if (capturing || !ready || countdown !== null) return;
@@ -220,6 +224,20 @@ const CaptureScreen: React.FC = () => {
 
     return (
         <div className="capture-screen">
+            {/* Dynamic Back / Cancel Button */}
+            {sessionStarted ? (
+                <button
+                    className="global-back-btn"
+                    onClick={reset}
+                    style={{ background: 'rgba(239, 68, 68, 0.6)', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                    title="Cancel Session"
+                >
+                    ✕
+                </button>
+            ) : (
+                <button className="global-back-btn" onClick={goToTemplate} title="Back to Layout Selection">←</button>
+            )}
+
             {/* Left Sidebar Menu */}
             {!sessionStarted && (
                 <div className="capture-sidebar">
@@ -292,7 +310,7 @@ const CaptureScreen: React.FC = () => {
                                 }}
                             >
                                 {index < currentSequence && capturedB64s[index] && (
-                                    <img src={capturedB64s[index]} alt={`Shot ${index + 1}`} style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }} />
+                                    <img src={capturedB64s[index]} alt={`Shot ${index + 1}`} style={{ transform: capturedMirrored[index] ? 'scaleX(-1)' : 'none' }} />
                                 )}
 
                                 {index === currentSequence && sessionStarted && (
@@ -339,6 +357,9 @@ const CaptureScreen: React.FC = () => {
                         </button>
                     ) : reviewMode ? (
                         <div className="review-controls">
+                            <button className="capture-action-btn" onClick={toggleAllMirrors} title="Flip all photos">
+                                🪞 Flip All
+                            </button>
                             <div className="review-timer">
                                 Finalizing in <span>{reviewTimeLeft}s</span>
                             </div>

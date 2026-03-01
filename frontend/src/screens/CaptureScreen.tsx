@@ -14,7 +14,8 @@ const CaptureScreen: React.FC = () => {
     const currentSequence = useAppStore((s) => s.currentSequence);
     const totalShots = useAppStore((s) => s.totalShots);
     const selectedTemplate = useAppStore((s) => s.selectedTemplate);
-    const addCapturedImage = useAppStore((s) => s.addCapturedImage);
+    const setCapturedImage = useAppStore((s) => s.setCapturedImage);
+    const setCurrentSequence = useAppStore((s) => s.setCurrentSequence);
     const incrementSequence = useAppStore((s) => s.incrementSequence);
     const selectFrame = useAppStore((s) => s.selectFrame);
     const selectedFrame = useAppStore((s) => s.selectedFrame);
@@ -36,6 +37,10 @@ const CaptureScreen: React.FC = () => {
     const [ready, setReady] = useState(false);
     const [sessionStarted, setSessionStarted] = useState(false);
     const [isMirrored, setIsMirrored] = useState(true);
+    const [reviewMode, setReviewMode] = useState(false);
+    const [reviewTimeLeft, setReviewTimeLeft] = useState(15);
+    const [shutterDelay, setShutterDelay] = useState(3);
+    const [countdown, setCountdown] = useState<number | null>(null);
 
     // Initial Load: Fetch Frames & Start Camera
     useEffect(() => {
@@ -114,9 +119,7 @@ const CaptureScreen: React.FC = () => {
     }, [sessionStarted, liveViewURL, frozen]);
 
     // Capture Logic
-    const handleCapture = useCallback(async () => {
-        if (capturing || !ready) return;
-
+    const performCapture = useCallback(async () => {
         setCapturing(true);
         setFlashTrigger(true);
         setFrozen(true);
@@ -128,31 +131,80 @@ const CaptureScreen: React.FC = () => {
 
             // Fetch the actual saved image from backend as Base64 so we can render it statically in the box!
             const base64Data = await GetImageBase64(imagePath);
-            addCapturedImage(imagePath, base64Data);
+            setCapturedImage(currentSequence, imagePath, base64Data);
 
             setFlashTrigger(false);
             setFrozen(false);
             setFrozenImage(null);
             setCapturing(false);
-            incrementSequence();
+
+            if (capturedB64s.length === totalShots) {
+                // If they are just retaking one shot, jump back to the end to trigger review
+                setCurrentSequence(totalShots);
+            } else {
+                incrementSequence();
+            }
         } catch (err) {
+            setCapturing(false);
+            setFlashTrigger(false);
+            setFrozen(false);
             goToError('Camera capture failed.');
         }
-    }, [sessionId, currentSequence, addCapturedImage, incrementSequence, capturing, ready, goToError]);
+    }, [sessionId, currentSequence, setCapturedImage, capturedB64s.length, totalShots, setCurrentSequence, incrementSequence, goToError]);
+
+    const handleCapture = useCallback(() => {
+        if (capturing || !ready || countdown !== null) return;
+
+        if (shutterDelay > 0) {
+            setCountdown(shutterDelay);
+        } else {
+            performCapture();
+        }
+    }, [capturing, ready, countdown, shutterDelay, performCapture]);
+
+    // Timer logic
+    useEffect(() => {
+        if (countdown === null) return;
+
+        if (countdown === 0) {
+            setCountdown(null);
+            performCapture();
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            setCountdown(countdown - 1);
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, [countdown, performCapture]);
 
     // Check Completion
     useEffect(() => {
-        if (currentSequence >= totalShots && currentSequence > 0) {
-            setTimeout(async () => {
-                if (pollingRef.current) clearInterval(pollingRef.current);
-                if (liveViewActiveRef.current) {
-                    liveViewActiveRef.current = false;
-                    try { await StopLiveView(); } catch { }
-                }
-                goToProcessing();
-            }, 500);
+        if (currentSequence >= totalShots && currentSequence > 0 && !reviewMode) {
+            setReviewMode(true);
+            setReviewTimeLeft(15);
         }
-    }, [currentSequence, totalShots, goToProcessing]);
+    }, [currentSequence, totalShots, reviewMode]);
+
+    // Review Countdown
+    useEffect(() => {
+        if (!reviewMode) return;
+        if (reviewTimeLeft <= 0) {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            if (liveViewActiveRef.current) {
+                liveViewActiveRef.current = false;
+                StopLiveView().catch(() => { });
+            }
+            goToProcessing();
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            setReviewTimeLeft((prev) => prev - 1);
+        }, 1000);
+        return () => clearTimeout(timer);
+    }, [reviewMode, reviewTimeLeft, goToProcessing]);
 
     // Dimensions setup for percentage mapping
     const baseWidth = selectedTemplate === 'strip_2x6' ? 600 : 1200;
@@ -225,7 +277,13 @@ const CaptureScreen: React.FC = () => {
                         return (
                             <div
                                 key={index}
-                                className="capture-spot"
+                                className={`capture-spot ${reviewMode ? 'reviewable' : ''}`}
+                                onClick={() => {
+                                    if (reviewMode && !capturing) {
+                                        setReviewMode(false);
+                                        setCurrentSequence(index);
+                                    }
+                                }}
                                 style={{
                                     left: `${leftPct}%`,
                                     top: `${topPct}%`,
@@ -260,6 +318,13 @@ const CaptureScreen: React.FC = () => {
                             )}
                         </div>
                     )}
+
+                    {/* Countdown Overlay */}
+                    {countdown !== null && (
+                        <div className="capture-countdown-overlay">
+                            {countdown}
+                        </div>
+                    )}
                 </div>
 
                 {/* Controls overlay */}
@@ -272,12 +337,34 @@ const CaptureScreen: React.FC = () => {
                         >
                             {ready ? 'Start Session! 📸' : 'Warming up camera...'}
                         </button>
+                    ) : reviewMode ? (
+                        <div className="review-controls">
+                            <div className="review-timer">
+                                Finalizing in <span>{reviewTimeLeft}s</span>
+                            </div>
+                            <button
+                                className="capture-start-btn"
+                                onClick={() => setReviewTimeLeft(0)}
+                            >
+                                Confirm & Print! ✨
+                            </button>
+                            <p className="review-hint">Click a photo to retake it</p>
+                        </div>
                     ) : (
-                        ready && !frozen && !capturing && currentSequence < totalShots && (
+                        ready && !frozen && !capturing && countdown === null && currentSequence < totalShots && (
                             <>
                                 <button className="capture-action-btn" onClick={() => setIsMirrored(!isMirrored)}>
                                     {isMirrored ? '🪞 Unmirror' : '🪞 Mirror'}
                                 </button>
+
+                                <button className="capture-action-btn" onClick={() => {
+                                    if (shutterDelay === 0) setShutterDelay(3);
+                                    else if (shutterDelay === 3) setShutterDelay(5);
+                                    else setShutterDelay(0);
+                                }}>
+                                    ⏱️ {shutterDelay === 0 ? 'Off' : `${shutterDelay}s`}
+                                </button>
+
                                 <button className="capture-button" onClick={handleCapture}>
                                     <div className="capture-button-inner" />
                                 </button>

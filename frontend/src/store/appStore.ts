@@ -34,7 +34,8 @@ interface AppStore {
   goToTemplate: () => void;
   selectTemplate: (template: TemplateType) => void;
   goToCapture: () => void;
-  addCapturedImage: (path: string, b64: string) => void;
+  setCapturedImage: (index: number, path: string, b64: string) => void;
+  setCurrentSequence: (index: number) => void;
   selectFrame: (frameId: string) => void;
   goToProcessing: () => void;
   setCompositeImage: (path: string) => void;
@@ -95,16 +96,22 @@ export const useAppStore = create<AppStore>((set) => ({
   goToCapture: () =>
     set({ currentState: 'capture', currentSequence: 0 }),
 
-  addCapturedImage: (path: string, b64: string) =>
-    set((state) => ({
-      capturedImages: [...state.capturedImages, path],
-      capturedB64s: [...state.capturedB64s, b64],
-    })),
+  setCapturedImage: (index: number, path: string, b64: string) =>
+    set((state) => {
+      const newImages = [...state.capturedImages];
+      const newB64s = [...state.capturedB64s];
+      newImages[index] = path;
+      newB64s[index] = b64;
+      return { capturedImages: newImages, capturedB64s: newB64s };
+    }),
 
   incrementSequence: () =>
     set((state) => ({
       currentSequence: state.currentSequence + 1,
     })),
+
+  setCurrentSequence: (index: number) =>
+    set({ currentSequence: index }),
 
   selectFrame: (frameId: string) =>
     set({ selectedFrame: frameId }),

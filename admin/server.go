@@ -78,8 +78,8 @@ code{background:rgba(0,0,0,.3);padding:2px 6px;border-radius:4px;font-size:.8rem
 .input-group input { background: #0f172a; border: 1px solid #334155; color: #e2e8f0; padding: .4rem; border-radius: 4px; font-family: monospace; font-size: .85rem; width: 100%; }
 .input-group input:focus { border-color: #6366f1; outline: none; }
 
-.editor-canvas-wrap { flex: 1; background: #0f172a; border-radius: 8px; border: 1px solid #334155; position: relative; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 2rem; }
-.editor-canvas { position: relative; background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.5); transform-origin: center; transition: transform 0.1s; }
+.editor-canvas-wrap { flex: 1; background: #0f172a; border-radius: 8px; border: 1px solid #334155; position: relative; overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding: 4rem 2rem 2rem 2rem; }
+.editor-canvas { position: relative; background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.5); transform-origin: top center; transition: transform 0.1s; }
 .editor-canvas img { display: block; width: 100%; height: 100%; pointer-events: none; }
 .canvas-box { position: absolute; border: 2px dashed rgba(255,42,109,0.5); background: rgba(255,42,109,0.1); display: flex; align-items: center; justify-content: center; font-weight: bold; color: rgba(255,255,255,0.5); text-shadow: 0 1px 3px rgba(0,0,0,0.8); font-size: 1.5rem; cursor: move; transition: border-color .2s, background .2s, color .2s; }
 .canvas-box:hover { border-color: #05d9e8; background: rgba(5,217,232,0.3); color: #fff; z-index: 10; }
@@ -318,11 +318,10 @@ function openEditor(id) {
   canvas.style.width = w + 'px';
   canvas.style.height = h + 'px';
   
-  // Calculate initial zoom to fit wrap
+  // Calculate initial zoom to fit wrap width primarily, so it doesn't become microscopic
   const wrap = document.getElementById('canvasWrap');
   const scaleX = (wrap.clientWidth - 40) / w;
-  const scaleY = (wrap.clientHeight - 40) / h;
-  activeTemplateScale = Math.min(scaleX, scaleY, 1);
+  activeTemplateScale = Math.max(0.25, Math.min(scaleX, 1));
   updateCanvasTransform();
 
   renderSidebarInputs();
@@ -337,7 +336,7 @@ function closeEditor() {
 }
 
 function zoomCanvas(delta) {
-  activeTemplateScale = Math.max(0.1, Math.min(3, activeTemplateScale + delta));
+  activeTemplateScale = Math.max(0.25, Math.min(3, activeTemplateScale + delta));
   updateCanvasTransform();
 }
 
@@ -616,21 +615,22 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 		// Provide default layouts based on template so user has a starting point
 		var layouts []PhotoLayout
 		if template == "strip_2x6" {
-			// 600x1800, stack of 4
-			h := 1800 / 4
+			// 600x1800, stack of 4. A 600 width in 3:2 needs 400 height.
+			// 4 * 400 = 1600. Leaving 200px of empty space at the bottom.
 			layouts = []PhotoLayout{
-				{X: 0, Y: 0 * h, Width: 600, Height: h},
-				{X: 0, Y: 1 * h, Width: 600, Height: h},
-				{X: 0, Y: 2 * h, Width: 600, Height: h},
-				{X: 0, Y: 3 * h, Width: 600, Height: h},
+				{X: 0, Y: 0, Width: 600, Height: 400},
+				{X: 0, Y: 400, Width: 600, Height: 400},
+				{X: 0, Y: 800, Width: 600, Height: 400},
+				{X: 0, Y: 1200, Width: 600, Height: 400},
 			}
 		} else if template == "postcard_4x6" {
-			// 1200x1800, 2x2 grid
+			// 1200x1800. Needs 4 boxes in 3:2 ratio.
+			// If we put two side-by-side, width = 540 each (leaves margins), height = 360.
 			layouts = []PhotoLayout{
-				{X: 0, Y: 0, Width: 600, Height: 900},
-				{X: 600, Y: 0, Width: 600, Height: 900},
-				{X: 0, Y: 900, Width: 600, Height: 900},
-				{X: 600, Y: 900, Width: 600, Height: 900},
+				{X: 40, Y: 40, Width: 540, Height: 360},
+				{X: 620, Y: 40, Width: 540, Height: 360},
+				{X: 40, Y: 440, Width: 540, Height: 360},
+				{X: 620, Y: 440, Width: 540, Height: 360},
 			}
 		}
 

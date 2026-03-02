@@ -40,8 +40,8 @@ td{padding:.5rem .75rem;border-bottom:1px solid rgba(255,255,255,.05);font-size:
 td.actions { white-space: nowrap; }
 code{background:rgba(0,0,0,.3);padding:2px 6px;border-radius:4px;font-size:.8rem}
 .swatch{width:24px;height:24px;border-radius:6px;border:2px solid rgba(255,255,255,.15);display:inline-block;vertical-align:middle;background-size:cover;background-position:center}
-.del-btn{background:none;border:none;cursor:pointer;font-size:1.2rem;opacity:.5;padding:4px 8px;border-radius:4px}
-.del-btn:hover{opacity:1;background:rgba(239,68,68,.2)}
+.del-btn{background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.3);cursor:pointer;font-size:1.1rem;opacity:.8;padding:4px 8px;border-radius:6px;transition:.2s}
+.del-btn:hover{opacity:1;background:rgba(239,68,68,.2);border-color:#ef4444}
 .status{position:fixed;bottom:1rem;right:1rem;padding:.5rem 1rem;border-radius:8px;font-size:.85rem;background:#22c55e33;color:#22c55e;opacity:0;transition:opacity .3s;z-index:999}
 .status.show{opacity:1}
 .status.error{background:#ef444433;color:#ef4444}

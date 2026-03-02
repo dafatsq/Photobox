@@ -44,9 +44,7 @@ func NewAdminConfig(framesDir string) *AdminConfig {
 	c := &AdminConfig{
 		bypassPayment: false,
 		framesDir:     framesDir,
-		frames: []Frame{
-			{ID: "none", Label: "No Frame", FilePath: "", Template: ""},
-		},
+		frames:        []Frame{},
 	}
 
 	// Attempt to load existing config on boot
@@ -99,21 +97,6 @@ func (c *AdminConfig) Load() error {
 	}
 
 	c.bypassPayment = state.BypassPayment
-
-	// Ensure "none" frame always exists, otherwise load everything
-	hasNone := false
-	for _, f := range state.Frames {
-		if f.ID == "none" {
-			hasNone = true
-			break
-		}
-	}
-
-	if !hasNone {
-		// prepended
-		state.Frames = append([]Frame{{ID: "none", Label: "No Frame", FilePath: "", Template: ""}}, state.Frames...)
-	}
-
 	c.frames = state.Frames
 
 	log.Printf("[Admin Config] Loaded %d frames from %s", len(c.frames), c.ConfigFilePath())

@@ -7,6 +7,7 @@ import './CaptureScreen.css';
 interface FrameOption {
     id: string;
     label: string;
+    template?: string;
 }
 
 const CaptureScreen: React.FC = () => {
@@ -52,8 +53,10 @@ const CaptureScreen: React.FC = () => {
 
         const init = async () => {
             try {
-                // 1. Load Available Frames
-                const availableFrames = await GetFrames() || [{ id: 'none', label: 'No Frame' }];
+                // 1. Load Available Frames and Filter by Template
+                const allFrames = await GetFrames() || [];
+                const availableFrames = allFrames.filter(f => !f.template || f.template === selectedTemplate);
+
                 if (!cancelled) {
                     setFrames(availableFrames);
                     if (!selectedFrame && availableFrames.length > 0) {
@@ -224,19 +227,14 @@ const CaptureScreen: React.FC = () => {
 
     return (
         <div className="capture-screen">
-            {/* Dynamic Back / Cancel Button */}
-            {sessionStarted ? (
-                <button
-                    className="global-back-btn"
-                    onClick={reset}
-                    style={{ background: 'rgba(239, 68, 68, 0.6)', borderColor: 'rgba(239, 68, 68, 0.4)' }}
-                    title="Cancel Session"
-                >
-                    ✕
-                </button>
-            ) : (
-                <button className="global-back-btn" onClick={goToTemplate} title="Back to Layout Selection">←</button>
-            )}
+            {/* Navigation Back Button */}
+            <button
+                className="global-back-btn"
+                onClick={sessionStarted ? () => setSessionStarted(false) : goToTemplate}
+                title={sessionStarted ? "Back to Frame Selection" : "Back to Layout Selection"}
+            >
+                ←
+            </button>
 
             {/* Left Sidebar Menu */}
             {!sessionStarted && (
@@ -350,10 +348,10 @@ const CaptureScreen: React.FC = () => {
                     {!sessionStarted ? (
                         <button
                             className="capture-start-btn"
-                            disabled={!ready}
+                            disabled={!ready || !selectedFrame}
                             onClick={() => setSessionStarted(true)}
                         >
-                            {ready ? 'Start Session! 📸' : 'Warming up camera...'}
+                            {!selectedFrame ? 'Select a Frame...' : ready ? 'Start Session! 📸' : 'Warming up camera...'}
                         </button>
                     ) : reviewMode ? (
                         <div className="review-controls">

@@ -7,6 +7,7 @@ type ProcessingStage = 'compositing' | 'printing' | 'qr' | 'complete';
 
 const ProcessingScreen: React.FC = () => {
     const capturedImages = useAppStore((s) => s.capturedImages);
+    const capturedMirrored = useAppStore((s) => s.capturedMirrored);
     const selectedTemplate = useAppStore((s) => s.selectedTemplate);
     const selectedFrame = useAppStore((s) => s.selectedFrame);
     const setCompositeImage = useAppStore((s) => s.setCompositeImage);
@@ -27,6 +28,7 @@ const ProcessingScreen: React.FC = () => {
 
                 const compositePath = await ProcessComposite(
                     capturedImages,
+                    capturedMirrored,
                     selectedTemplate || 'strip_2x6',
                     selectedFrame || 'none'
                 );

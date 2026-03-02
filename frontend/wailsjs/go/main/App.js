@@ -34,8 +34,8 @@ export function PrintPhoto(arg1) {
   return window['go']['main']['App']['PrintPhoto'](arg1);
 }
 
-export function ProcessComposite(arg1, arg2, arg3) {
-  return window['go']['main']['App']['ProcessComposite'](arg1, arg2, arg3);
+export function ProcessComposite(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['ProcessComposite'](arg1, arg2, arg3, arg4);
 }
 
 export function SaveWebRTCImage(arg1, arg2, arg3) {

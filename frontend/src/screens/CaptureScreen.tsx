@@ -88,8 +88,13 @@ const CaptureScreen: React.FC = () => {
                 const availableFrames = await GetFrames() || [{ id: 'none', label: 'No Frame' }];
                 if (!cancelled) {
                     setFrames(availableFrames);
-                    if (!selectedFrame && availableFrames.length > 0) {
-                        selectFrame(availableFrames[0].id);
+                    const isCurrentValid = availableFrames.some((f: FrameOption) => f.id === selectedFrame);
+                    if (!isCurrentValid) {
+                        if (availableFrames.length > 0) {
+                            selectFrame(availableFrames[0].id);
+                        } else {
+                            selectFrame(null);
+                        }
                     }
                 }
 

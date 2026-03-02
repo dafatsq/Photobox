@@ -37,7 +37,7 @@ interface AppStore {
   goToCapture: () => void;
   setCapturedImage: (index: number, path: string, b64: string, isMirrored: boolean) => void;
   setCurrentSequence: (index: number) => void;
-  selectFrame: (frameId: string) => void;
+  selectFrame: (frameId: string | null) => void;
   goToProcessing: () => void;
   setCompositeImage: (path: string) => void;
   goToShare: () => void;
@@ -119,7 +119,7 @@ export const useAppStore = create<AppStore>((set) => ({
   setCurrentSequence: (index: number) =>
     set({ currentSequence: index }),
 
-  selectFrame: (frameId: string) =>
+  selectFrame: (frameId: string | null) =>
     set({ selectedFrame: frameId }),
 
   goToProcessing: () =>

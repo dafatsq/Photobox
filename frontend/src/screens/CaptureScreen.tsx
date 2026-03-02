@@ -59,8 +59,13 @@ const CaptureScreen: React.FC = () => {
 
                 if (!cancelled) {
                     setFrames(availableFrames);
-                    if (!selectedFrame && availableFrames.length > 0) {
-                        selectFrame(availableFrames[0].id);
+                    const isCurrentValid = availableFrames.some(f => f.id === selectedFrame);
+                    if (!isCurrentValid) {
+                        if (availableFrames.length > 0) {
+                            selectFrame(availableFrames[0].id);
+                        } else {
+                            selectFrame(null);
+                        }
                     }
                 }
 

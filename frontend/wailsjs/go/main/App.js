@@ -6,6 +6,10 @@ export function CheckPaymentStatus(arg1) {
   return window['go']['main']['App']['CheckPaymentStatus'](arg1);
 }
 
+export function GetCameraMode() {
+  return window['go']['main']['App']['GetCameraMode']();
+}
+
 export function GetDataDir() {
   return window['go']['main']['App']['GetDataDir']();
 }
@@ -26,6 +30,10 @@ export function GetLiveViewURL() {
   return window['go']['main']['App']['GetLiveViewURL']();
 }
 
+export function GetWebcamID() {
+  return window['go']['main']['App']['GetWebcamID']();
+}
+
 export function IsPaymentBypassed() {
   return window['go']['main']['App']['IsPaymentBypassed']();
 }
@@ -44,6 +52,10 @@ export function SaveWebRTCImage(arg1, arg2, arg3) {
 
 export function SendEmail(arg1, arg2) {
   return window['go']['main']['App']['SendEmail'](arg1, arg2);
+}
+
+export function SetAvailableCameras(arg1) {
+  return window['go']['main']['App']['SetAvailableCameras'](arg1);
 }
 
 export function StartLiveView() {

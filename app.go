@@ -66,6 +66,21 @@ func (a *App) GetFrames() []admin.Frame {
 	return a.adminCfg.GetFrames()
 }
 
+// GetCameraMode returns the configured camera type ('dslr' or 'webcam')
+func (a *App) GetCameraMode() string {
+	return a.adminCfg.GetCameraType()
+}
+
+// GetWebcamID returns the configured webcam device id
+func (a *App) GetWebcamID() string {
+	return a.adminCfg.GetWebcamID()
+}
+
+// SetAvailableCameras lets the frontend report the host machine's webcams to the admin panel
+func (a *App) SetAvailableCameras(cameras []admin.CameraDevice) {
+	a.adminCfg.SetAvailableCameras(cameras)
+}
+
 // CheckPaymentStatus checks the QRIS webhook for a given transaction ID.
 // In production, this would call an external payment gateway API.
 // For now, it simulates a successful payment after a short delay.

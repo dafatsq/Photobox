@@ -5,6 +5,8 @@ import {admin} from '../models';
 
 export function CheckPaymentStatus(arg1:string):Promise<boolean>;
 
+export function GetCameraMode():Promise<string>;
+
 export function GetDataDir():Promise<string>;
 
 export function GetFrameConfig(arg1:string):Promise<main.FrontendFrameConfig>;
@@ -15,6 +17,8 @@ export function GetImageBase64(arg1:string):Promise<string>;
 
 export function GetLiveViewURL():Promise<string>;
 
+export function GetWebcamID():Promise<string>;
+
 export function IsPaymentBypassed():Promise<boolean>;
 
 export function PrintPhoto(arg1:string):Promise<void>;
@@ -24,6 +28,8 @@ export function ProcessComposite(arg1:Array<string>,arg2:Array<boolean>,arg3:str
 export function SaveWebRTCImage(arg1:string,arg2:number,arg3:string):Promise<string>;
 
 export function SendEmail(arg1:string,arg2:string):Promise<void>;
+
+export function SetAvailableCameras(arg1:Array<admin.CameraDevice>):Promise<void>;
 
 export function StartLiveView():Promise<void>;
 

@@ -107,6 +107,19 @@ h1 span{color:#e2e8f0}
     </label>
     <div id="bypassToggle" class="switch" onclick="toggleBypass()"></div>
   </div>
+  <div class="toggle-row" style="margin-top:0.5rem">
+    <label>Camera Mode</label>
+    <select id="cameraTypeSelect" style="background:#0f172a; color:#e2e8f0; border:1px solid #334155; padding:0.5rem; border-radius:4px" onchange="updateCameraSettings()">
+      <option value="dslr">DSLR (digiCamControl)</option>
+      <option value="webcam">Webcam (Browser)</option>
+    </select>
+  </div>
+  <div class="toggle-row" id="webcamRow" style="margin-top:0.5rem; display:none;">
+    <label>Webcam Device</label>
+    <select id="webcamSelect" style="background:#0f172a; color:#e2e8f0; border:1px solid #334155; padding:0.5rem; border-radius:4px" onchange="updateCameraSettings()">
+      <option value="">Default Webcam</option>
+    </select>
+  </div>
 </div>
 
 <div class="card">
@@ -174,6 +187,18 @@ async function load() {
   render();
 }
 
+async function updateCameraSettings() {
+  config.cameraType = document.getElementById('cameraTypeSelect').value;
+  config.webcamId = document.getElementById('webcamSelect').value;
+  await fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bypassPayment: config.bypassPayment, cameraType: config.cameraType, webcamId: config.webcamId })
+  });
+  render();
+  flash('Camera settings saved');
+}
+
 function render() {
   const t = document.getElementById('bypassToggle');
   const b = document.getElementById('bypassBadge');
@@ -183,6 +208,27 @@ function render() {
   } else {
     t.classList.remove('on');
     b.className = 'badge off'; b.textContent = 'OFF';
+  }
+
+  const cType = document.getElementById('cameraTypeSelect');
+  cType.value = config.cameraType || 'dslr';
+  
+  const wRow = document.getElementById('webcamRow');
+  const wSel = document.getElementById('webcamSelect');
+  
+  if (config.cameraType === 'webcam') {
+    wRow.style.display = 'flex';
+    // Preserve current selection if possible, otherwise build
+    const tempVal = config.webcamId || '';
+    wSel.innerHTML = '<option value="">Default Webcam</option>';
+    if (config.availableCameras && config.availableCameras.length > 0) {
+       config.availableCameras.forEach(cam => {
+         wSel.innerHTML += '<option value="' + esc(cam.id) + '">' + esc(cam.label || 'Camera ' + cam.id.substring(0,8)) + '</option>';
+       });
+    }
+    wSel.value = tempVal;
+  } else {
+    wRow.style.display = 'none';
   }
   
   const grid = document.getElementById('framesGrid');
@@ -218,7 +264,7 @@ async function toggleBypass() {
   await fetch('/api/config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ bypassPayment: config.bypassPayment })
+    body: JSON.stringify({ bypassPayment: config.bypassPayment, cameraType: config.cameraType, webcamId: config.webcamId })
   });
   render();
   flash('Payment bypass ' + (config.bypassPayment ? 'enabled' : 'disabled'));
@@ -541,13 +587,18 @@ load();
 
 // configResponse is used for JSON serialization of the admin config.
 type configResponse struct {
-	BypassPayment bool    `json:"bypassPayment"`
-	Frames        []Frame `json:"frames"`
+	BypassPayment    bool           `json:"bypassPayment"`
+	Frames           []Frame        `json:"frames"`
+	CameraType       string         `json:"cameraType"`
+	WebcamID         string         `json:"webcamId"`
+	AvailableCameras []CameraDevice `json:"availableCameras"`
 }
 
 // configUpdateRequest is used for JSON deserialization of config updates.
 type configUpdateRequest struct {
-	BypassPayment bool `json:"bypassPayment"`
+	BypassPayment bool   `json:"bypassPayment"`
+	CameraType    string `json:"cameraType"`
+	WebcamID      string `json:"webcamId"`
 }
 
 // StartAdminServer launches the admin HTTP server on the given port.
@@ -595,8 +646,11 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 		switch r.Method {
 		case http.MethodGet:
 			resp := configResponse{
-				BypassPayment: cfg.GetBypassPayment(),
-				Frames:        cfg.GetFrames(),
+				BypassPayment:    cfg.GetBypassPayment(),
+				Frames:           cfg.GetFrames(),
+				CameraType:       cfg.GetCameraType(),
+				WebcamID:         cfg.GetWebcamID(),
+				AvailableCameras: cfg.GetAvailableCameras(),
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(resp)
@@ -608,6 +662,10 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 				return
 			}
 			cfg.SetBypassPayment(body.BypassPayment)
+			if body.CameraType != "" {
+				cfg.SetCameraType(body.CameraType)
+			}
+			cfg.SetWebcamID(body.WebcamID)
 			w.WriteHeader(http.StatusOK)
 
 		default:

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../store/appStore';
-import { TriggerCapture, GetLiveViewURL, StartLiveView, StopLiveView, GetFrames, GetFrameConfig, GetImageBase64 } from '../../wailsjs/go/main/App';
+import { TriggerCapture, GetLiveViewURL, StartLiveView, StopLiveView, GetFrames, GetFrameConfig, GetImageBase64, GetCameraMode, GetWebcamID, SaveWebRTCImage } from '../../wailsjs/go/main/App';
 import FlashOverlay from '../components/FlashOverlay';
 import './CaptureScreen.css';
 
@@ -29,11 +29,14 @@ const CaptureScreen: React.FC = () => {
     const toggleAllMirrors = useAppStore((s) => s.toggleAllMirrors);
 
     const imgRef = useRef<HTMLImageElement>(null);
+    const streamRef = useRef<MediaStream | null>(null);
     const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const liveViewActiveRef = useRef(false);
 
     const [frames, setFrames] = useState<FrameOption[]>([]);
     const [frameConfig, setFrameConfig] = useState<any>(null); // FrontendFrameConfig from Go
+    const [cameraMode, setCameraMode] = useState<string>('dslr');
+    const [webcamId, setWebcamId] = useState<string>('');
     const [liveViewURL, setLiveViewURL] = useState('');
     const [flashTrigger, setFlashTrigger] = useState(false);
     const [frozen, setFrozen] = useState(false);
@@ -69,15 +72,38 @@ const CaptureScreen: React.FC = () => {
                     }
                 }
 
-                // 2. Start Camera Live View
-                await StartLiveView();
-                const url = await GetLiveViewURL();
-                if (!cancelled && url) {
-                    liveViewActiveRef.current = true;
-                    setLiveViewURL(url);
-                    setReady(true);
-                } else if (!cancelled) {
-                    goToError('DigiCamControl not detected. Interactive layout requires main camera.');
+                // Get Camera config
+                const mode = await GetCameraMode();
+                const wId = await GetWebcamID();
+                if (!cancelled) {
+                    setCameraMode(mode || 'dslr');
+                    setWebcamId(wId || '');
+                }
+
+                if (mode === 'webcam') {
+                    try {
+                        const constraints: MediaStreamConstraints = {
+                            video: wId ? { deviceId: { exact: wId }, width: 1920, height: 1080 } : { width: 1920, height: 1080 }
+                        };
+                        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                        if (!cancelled) {
+                            streamRef.current = stream;
+                            setReady(true);
+                        }
+                    } catch (err) {
+                        if (!cancelled) goToError('Webcam failed to start.');
+                    }
+                } else {
+                    // Start Camera Live View (DSLR)
+                    await StartLiveView();
+                    const url = await GetLiveViewURL();
+                    if (!cancelled && url) {
+                        liveViewActiveRef.current = true;
+                        setLiveViewURL(url);
+                        setReady(true);
+                    } else if (!cancelled) {
+                        goToError('DigiCamControl not detected. Interactive layout requires main camera.');
+                    }
                 }
             } catch (err) {
                 if (!cancelled) goToError('Camera initialization failed.');
@@ -88,6 +114,10 @@ const CaptureScreen: React.FC = () => {
             if (liveViewActiveRef.current) {
                 liveViewActiveRef.current = false;
                 try { await StopLiveView(); } catch { }
+            }
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(t => t.stop());
+                streamRef.current = null;
             }
         };
 
@@ -136,14 +166,32 @@ const CaptureScreen: React.FC = () => {
         setFlashTrigger(true);
         setFrozen(true);
 
-        if (imgRef.current) setFrozenImage(imgRef.current.src);
-
         try {
-            const imagePath = await TriggerCapture(sessionId, currentSequence);
+            if (cameraMode === 'webcam' && streamRef.current) {
+                const domVideo = document.querySelector('.capture-spot video') as HTMLVideoElement;
+                if (!domVideo) throw new Error('Video element missing');
 
-            // Fetch the actual saved image from backend as Base64 so we can render it statically in the box!
-            const base64Data = await GetImageBase64(imagePath);
-            setCapturedImage(currentSequence, imagePath, base64Data, isMirrored);
+                const canvas = document.createElement('canvas');
+                canvas.width = domVideo.videoWidth || 1920;
+                canvas.height = domVideo.videoHeight || 1080;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) throw new Error('No 2d context');
+
+                ctx.drawImage(domVideo, 0, 0, canvas.width, canvas.height);
+                const b64 = canvas.toDataURL('image/jpeg', 0.9);
+
+                setFrozenImage(b64);
+
+                const imagePath = await SaveWebRTCImage(sessionId, currentSequence, b64);
+                setCapturedImage(currentSequence, imagePath, b64, isMirrored);
+
+            } else {
+                if (imgRef.current) setFrozenImage(imgRef.current.src);
+
+                const imagePath = await TriggerCapture(sessionId, currentSequence);
+                const base64Data = await GetImageBase64(imagePath);
+                setCapturedImage(currentSequence, imagePath, base64Data, isMirrored);
+            }
 
             setFlashTrigger(false);
             setFrozen(false);
@@ -151,7 +199,6 @@ const CaptureScreen: React.FC = () => {
             setCapturing(false);
 
             if (capturedB64s.length === totalShots) {
-                // If they are just retaking one shot, jump back to the end to trigger review
                 setCurrentSequence(totalShots);
             } else {
                 incrementSequence();
@@ -162,7 +209,7 @@ const CaptureScreen: React.FC = () => {
             setFrozen(false);
             goToError('Camera capture failed.');
         }
-    }, [sessionId, currentSequence, setCapturedImage, capturedB64s.length, totalShots, setCurrentSequence, incrementSequence, goToError, isMirrored]);
+    }, [sessionId, currentSequence, setCapturedImage, capturedB64s.length, totalShots, setCurrentSequence, incrementSequence, goToError, isMirrored, cameraMode]);
 
     const handleCapture = useCallback(() => {
         if (capturing || !ready || countdown !== null) return;
@@ -312,7 +359,7 @@ const CaptureScreen: React.FC = () => {
                                     height: `${heightPct}%`,
                                 }}
                             >
-                                {index < currentSequence && capturedB64s[index] && (
+                                {index !== currentSequence && capturedB64s[index] && (
                                     <img src={capturedB64s[index]} alt={`Shot ${index + 1}`} style={{ transform: capturedMirrored[index] ? 'scaleX(-1)' : 'none' }} />
                                 )}
 
@@ -320,6 +367,18 @@ const CaptureScreen: React.FC = () => {
                                     <>
                                         {frozen && frozenImage ? (
                                             <img src={frozenImage} alt="Frozen" style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }} />
+                                        ) : cameraMode === 'webcam' ? (
+                                            <video
+                                                autoPlay
+                                                playsInline
+                                                muted
+                                                ref={(el) => {
+                                                    if (el && streamRef.current && el.srcObject !== streamRef.current) {
+                                                        el.srcObject = streamRef.current;
+                                                    }
+                                                }}
+                                                style={{ transform: isMirrored ? 'scaleX(-1)' : 'none', width: '100%', height: '100%', objectFit: 'cover' }}
+                                            />
                                         ) : (
                                             <img ref={imgRef} src={`${liveViewURL}?t=${Date.now()}`} alt="Live View" style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }} />
                                         )}
@@ -329,11 +388,22 @@ const CaptureScreen: React.FC = () => {
                         );
                     })}
 
-                    {/* Fallback box if no layouts exist (e.g. "none" frame) */}
                     {(!frameConfig || !frameConfig.layouts || selectedFrame === 'none') && sessionStarted && currentSequence < totalShots && (
                         <div className="capture-spot" style={{ left: 0, top: 0, width: '100%', height: '100%' }}>
                             {frozen && frozenImage ? (
                                 <img src={frozenImage} alt="Frozen" style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }} />
+                            ) : cameraMode === 'webcam' ? (
+                                <video
+                                    autoPlay
+                                    playsInline
+                                    muted
+                                    ref={(el) => {
+                                        if (el && streamRef.current && el.srcObject !== streamRef.current) {
+                                            el.srcObject = streamRef.current;
+                                        }
+                                    }}
+                                    style={{ transform: isMirrored ? 'scaleX(-1)' : 'none', width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
                             ) : (
                                 <img ref={imgRef} src={`${liveViewURL}?t=${Date.now()}`} alt="Live View" style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }} />
                             )}
@@ -406,7 +476,7 @@ const CaptureScreen: React.FC = () => {
                             {Array.from({ length: totalShots }).map((_, i) => (
                                 <div
                                     key={i}
-                                    className={`capture-dot ${i < currentSequence ? 'done' : ''} ${i === currentSequence ? 'active' : ''}`}
+                                    className={`capture-dot ${capturedB64s[i] && i !== currentSequence ? 'done' : ''} ${i === currentSequence ? 'active' : ''}`}
                                 />
                             ))}
                         </div>

@@ -1,5 +1,19 @@
 export namespace admin {
 	
+	export class CameraDevice {
+	    id: string;
+	    label: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CameraDevice(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.label = source["label"];
+	    }
+	}
 	export class PhotoLayout {
 	    x: number;
 	    y: number;

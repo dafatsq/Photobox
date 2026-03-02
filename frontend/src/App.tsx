@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { useAppStore } from './store/appStore';
+import { SetAvailableCameras } from '../wailsjs/go/main/App';
 import AttractScreen from './screens/AttractScreen';
 import PaymentScreen from './screens/PaymentScreen';
 import TemplateScreen from './screens/TemplateScreen';
@@ -10,6 +12,32 @@ import ErrorScreen from './screens/ErrorScreen';
 
 function App() {
     const currentState = useAppStore((s) => s.currentState);
+
+    useEffect(() => {
+        const discoverCameras = async () => {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(d => d.kind === 'videoinput');
+                const cameras = videoDevices.map(d => ({
+                    id: d.deviceId,
+                    label: d.label || `Camera ${d.deviceId.slice(0, 5)}...`
+                }));
+                if (cameras.length > 0) {
+                    SetAvailableCameras(cameras).catch(err => console.error(err));
+                }
+            } catch (err) {
+                console.error("Failed to enumerate devices", err);
+            }
+        };
+
+        // Try getting permission first so we can read the true labels
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                stream.getTracks().forEach(t => t.stop());
+                discoverCameras();
+            })
+            .catch(() => discoverCameras());
+    }, []);
 
     const renderScreen = () => {
         switch (currentState) {

@@ -34,13 +34,16 @@ h1 span{color:#e2e8f0}
 .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600}
 .badge.on{background:#22c55e33;color:#22c55e}
 .badge.off{background:#ef444433;color:#ef4444}
-table{width:100%;border-collapse:collapse;margin-bottom:1rem;table-layout:fixed}
-th{text-align:left;padding:.5rem .75rem;color:#64748b;font-size:.8rem;border-bottom:1px solid #334155}
-td{padding:.5rem .75rem;border-bottom:1px solid rgba(255,255,255,.05);font-size:.9rem}
-td.actions { white-space: nowrap; }
-code{background:rgba(0,0,0,.3);padding:2px 6px;border-radius:4px;font-size:.8rem}
-.swatch{width:24px;height:24px;border-radius:6px;border:2px solid rgba(255,255,255,.15);display:inline-block;vertical-align:middle;background-size:cover;background-position:center}
-.del-btn{background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.3);cursor:pointer;font-size:1.1rem;opacity:.8;padding:4px 8px;border-radius:6px;transition:.2s}
+.frames-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:1.5rem;margin-bottom:2rem}
+.frame-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:1rem;display:flex;flex-direction:column;gap:.75rem;transition:.2s}
+.frame-card:hover{transform:translateY(-4px);border-color:#6366f1;background:rgba(255,255,255,.05)}
+.frame-preview{height:300px;background:#000;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.1)}
+.frame-preview img{height:100%;width:auto;object-fit:contain;display:block}
+.frame-info{display:flex;flex-direction:column;gap:.25rem}
+.frame-info h4{font-size:.9rem;color:#e2e8f0;margin:0}
+.frame-info p{font-size:.75rem;color:#64748b;margin:0}
+.frame-actions{display:flex;gap:.5rem;margin-top:auto}
+.del-btn{background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.3);cursor:pointer;font-size:1.1rem;opacity:.8;padding:4px 12px;border-radius:6px;transition:.2s}
 .del-btn:hover{opacity:1;background:rgba(239,68,68,.2);border-color:#ef4444}
 .status{position:fixed;bottom:1rem;right:1rem;padding:.5rem 1rem;border-radius:8px;font-size:.85rem;background:#22c55e33;color:#22c55e;opacity:0;transition:opacity .3s;z-index:999}
 .status.show{opacity:1}
@@ -129,10 +132,7 @@ code{background:rgba(0,0,0,.3);padding:2px 6px;border-radius:4px;font-size:.8rem
   </div>
 
   <h2>Active Frames</h2>
-  <table>
-    <thead><tr><th style="width:25%">ID / File</th><th style="width:20%">Label</th><th style="width:15%">Template</th><th style="width:15%">Preview</th><th style="width:25%">Actions</th></tr></thead>
-    <tbody id="framesBody"></tbody>
-  </table>
+  <div id="framesGrid" class="frames-grid"></div>
 </div>
 
 <div id="status" class="status"></div>
@@ -185,29 +185,29 @@ function render() {
     b.className = 'badge off'; b.textContent = 'OFF';
   }
   
-  const tbody = document.getElementById('framesBody');
-  tbody.innerHTML = config.frames.map(f => {
+  const grid = document.getElementById('framesGrid');
+  grid.innerHTML = config.frames.map(f => {
     let previewHtml = '';
+    const ts = new Date().getTime();
     if (f.id === 'none') {
-      previewHtml = '<div class="swatch" style="background:transparent"></div> <code>none</code>';
+      previewHtml = '<div class="frame-preview" style="background:rgba(0,0,0,0.5); color:#64748b; font-size:2rem;">🚫</div>';
     } else {
-      // Append timestamp to bust cache for thumbnail
-      const ts = new Date().getTime();
-      previewHtml = '<div class="swatch" style="background-image:url(\'/frames/' + esc(f.id) + '.png?t=' + ts + '\')"></div> <code>png</code>';
+      previewHtml = '<div class="frame-preview"><img src="/frames/' + esc(f.id) + '.png?t=' + ts + '" alt="' + esc(f.label) + '"></div>';
     }
 
     let templateBadge = f.template ? '<span class="badge on">' + esc(f.template) + '</span>' : '<span class="badge off">Any</span>';
 
-    return '<tr>' +
-      '<td><code style="word-break: break-all;">' + esc(f.id) + '</code></td>' +
-      '<td>' + esc(f.label) + '</td>' +
-      '<td>' + templateBadge + '</td>' +
-      '<td>' + previewHtml + '</td>' +
-      '<td class="actions" style="display:flex; gap:0.5rem; align-items:center;">' +
-      '<button class="btn btn-sm" onclick="openEditor(\'' + esc(f.id) + '\')">Edit Layout</button>' +
-      '<button class="del-btn" onclick="removeFrame(\'' + esc(f.id) + '\')" title="Delete">🗑</button>' +
-      '</td>' +
-      '</tr>';
+    return '<div class="frame-card">' +
+      previewHtml +
+      '<div class="frame-info">' +
+        '<h4>' + esc(f.label) + '</h4>' +
+        '<p><code>' + esc(f.id) + '</code> — ' + templateBadge + '</p>' +
+      '</div>' +
+      '<div class="frame-actions">' +
+        '<button class="btn btn-sm" style="flex:1" onclick="openEditor(\'' + esc(f.id) + '\')">Edit Layout</button>' +
+        '<button class="del-btn" onclick="removeFrame(\'' + esc(f.id) + '\')" title="Delete">🗑</button>' +
+      '</div>' +
+    '</div>';
   }).join('');
 }
 

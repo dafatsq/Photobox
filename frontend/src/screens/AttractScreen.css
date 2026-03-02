@@ -4,7 +4,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #0f0f14 0%, #1a1025 40%, #0f0f14 100%);
+
     cursor: pointer;
     position: relative;
     overflow: hidden;

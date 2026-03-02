@@ -12,8 +12,9 @@
     font-size: 3.5rem;
     font-weight: 800;
     margin-bottom: 3rem;
-    background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
+    background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
@@ -90,15 +91,15 @@
     font-size: 1.1rem;
     border-radius: 999px;
     border: 2px solid rgba(255, 255, 255, 0.1);
-    background: rgba(15, 23, 42, 0.6);
+    background: rgba(26, 16, 37, 0.6);
     color: white;
     outline: none;
     transition: all 0.3s ease;
 }
 
 .email-input:focus {
-    border-color: #3b82f6;
-    background: rgba(15, 23, 42, 0.9);
+    border-color: #8b5cf6;
+    background: rgba(26, 16, 37, 0.9);
 }
 
 .email-submit-btn {
@@ -106,7 +107,7 @@
     font-size: 1.2rem;
     font-weight: 700;
     color: white;
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
     border: none;
     border-radius: 999px;
     cursor: pointer;

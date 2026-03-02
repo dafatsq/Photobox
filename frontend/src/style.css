@@ -1,5 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
+:root {
+    --primary-color: #8b5cf6;
+    --primary-light: #a78bfa;
+    --secondary-color: #7c3aed;
+    --surface-color: rgba(26, 16, 37, 0.8);
+    --surface-light: rgba(255, 255, 255, 0.05);
+    --border-color: rgba(255, 255, 255, 0.1);
+    --text-color: #f8fafc;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -11,7 +21,7 @@ body {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background: #0f0f14;
+    background: linear-gradient(135deg, #0f0f14 0%, #1a1025 40%, #0f0f14 100%);
     color: #e2e8f0;
     font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -83,7 +93,7 @@ button {
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    background: rgba(15, 23, 42, 0.6);
+    background: rgba(26, 16, 37, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: white;
     font-size: 1.5rem;
@@ -99,7 +109,7 @@ button {
 
 .global-back-btn:hover {
     transform: scale(1.1) translateX(-2px);
-    background: rgba(15, 23, 42, 0.9);
+    background: rgba(26, 16, 37, 0.9);
     border-color: rgba(255, 255, 255, 0.3);
 }
 

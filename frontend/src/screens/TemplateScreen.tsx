@@ -2,17 +2,19 @@ import React, { useState } from 'react';
 import { useAppStore, TemplateType } from '../store/appStore';
 import './TemplateScreen.css';
 
-const templates: { id: TemplateType; label: string; description: string; layout: string }[] = [
+const templates: { id: TemplateType; label: string; description: string; icon: string; layout: string }[] = [
     {
         id: 'strip_2x6',
         label: 'Photo Strip',
         description: '4 photos in a classic vertical strip',
+        icon: '📋',
         layout: '2×6"',
     },
     {
         id: 'postcard_4x6',
         label: 'Postcard',
         description: '4 photos in a beautiful grid',
+        icon: '🖼️',
         layout: '4×6"',
     },
 ];
@@ -58,6 +60,7 @@ const TemplateScreen: React.FC = () => {
                         className="template-card"
                         onClick={() => handleSelect(t.id)}
                     >
+                        <div className="template-card-icon">{t.icon}</div>
                         <div className="template-card-preview">
                             <div className={`template-preview-layout ${t.id}`}>
                                 {t.id === 'strip_2x6' ? (

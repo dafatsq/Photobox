@@ -14,6 +14,29 @@ const ShareScreen: React.FC = () => {
     const [sent, setSent] = useState(false);
     const [b64Image, setB64Image] = useState('');
 
+    // 5-Minute Auto-Finish Timer (300 seconds)
+    const [timeLeft, setTimeLeft] = useState(300);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setTimeLeft((prev) => {
+                if (prev <= 1) {
+                    reset();
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [reset]);
+
+    const formatTime = (sec: number) => {
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    };
+
     useEffect(() => {
         if (compositeImagePath) {
             GetImageBase64(compositeImagePath)
@@ -48,6 +71,28 @@ const ShareScreen: React.FC = () => {
     return (
         <div className="share-screen">
             <button className="global-back-btn" onClick={reset} title="Go Home">🏠</button>
+
+            {/* 5-minute Auto-Finish Timer Pill */}
+            <div
+                style={{
+                    position: 'fixed',
+                    top: 20,
+                    right: 20,
+                    background: timeLeft <= 60 ? 'rgba(239, 68, 68, 0.9)' : 'rgba(0, 0, 0, 0.7)',
+                    border: `2px solid ${timeLeft <= 60 ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.2)'}`,
+                    padding: '10px 20px',
+                    borderRadius: 50,
+                    color: '#fff',
+                    zIndex: 1000,
+                    fontWeight: 'bold',
+                    fontSize: '1.2rem',
+                    boxShadow: timeLeft <= 60 ? '0 0 20px rgba(239, 68, 68, 0.8)' : '0 4px 15px rgba(0, 0, 0, 0.3)',
+                    transition: 'all 0.3s ease'
+                }}
+            >
+                {timeLeft <= 60 ? '⚠️ ' : '⏱️ '} Session ends in: {formatTime(timeLeft)}
+            </div>
+
             <h2 className="share-title">Your Photo is Ready!</h2>
 
             <div className="share-content">

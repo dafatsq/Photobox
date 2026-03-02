@@ -1,14 +1,23 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../store/appStore';
-import { TriggerCapture, GetLiveViewURL, StartLiveView, StopLiveView, GetFrames, GetFrameConfig, GetImageBase64 } from '../../wailsjs/go/main/App';
+import { SaveWebRTCImage, GetFrames, GetFrameConfig, GetImageBase64 } from '../../wailsjs/go/main/App';
 import FlashOverlay from '../components/FlashOverlay';
 import './CaptureScreen.css';
 
 interface FrameOption {
     id: string;
     label: string;
-    template?: string;
+    filePath: string;
+    template: string;
 }
+
+// Helper to extract the frame's true filename from absolute paths 
+// e.g "C:\...\frames\frame1.png" -> "frame1.png"
+const getFrameFilename = (filePath: string) => {
+    if (!filePath) return 'none';
+    const parts = filePath.split(/[\\/]/);
+    return parts[parts.length - 1];
+};
 
 const CaptureScreen: React.FC = () => {
     const sessionId = useAppStore((s) => s.sessionId);
@@ -28,13 +37,10 @@ const CaptureScreen: React.FC = () => {
     const reset = useAppStore((s) => s.reset);
     const toggleAllMirrors = useAppStore((s) => s.toggleAllMirrors);
 
-    const imgRef = useRef<HTMLImageElement>(null);
-    const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const liveViewActiveRef = useRef(false);
+    const videoRef = useRef<HTMLVideoElement>(null);
 
     const [frames, setFrames] = useState<FrameOption[]>([]);
     const [frameConfig, setFrameConfig] = useState<any>(null); // FrontendFrameConfig from Go
-    const [liveViewURL, setLiveViewURL] = useState('');
     const [flashTrigger, setFlashTrigger] = useState(false);
     const [frozen, setFrozen] = useState(false);
     const [frozenImage, setFrozenImage] = useState<string | null>(null);
@@ -43,20 +49,43 @@ const CaptureScreen: React.FC = () => {
     const [sessionStarted, setSessionStarted] = useState(false);
     const [isMirrored, setIsMirrored] = useState(true);
     const [reviewMode, setReviewMode] = useState(false);
-    const [reviewTimeLeft, setReviewTimeLeft] = useState(15);
-    const [shutterDelay, setShutterDelay] = useState(3);
+    const [shutterDelay, setShutterDelay] = useState(10);
     const [countdown, setCountdown] = useState<number | null>(null);
 
-    // Initial Load: Fetch Frames & Start Camera
+    const [activeStream, setActiveStream] = useState<MediaStream | null>(null);
+
+    // Global 8-minute Session Timer (480 seconds) starts IMMEDIATELY upon entering this screen (after templates/payment)
+    const [sessionTimeLeft, setSessionTimeLeft] = useState(480);
+
     useEffect(() => {
+        const interval = setInterval(() => {
+            setSessionTimeLeft((prev) => {
+                if (prev <= 1) {
+                    reset(); // Timeout reached
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [reset]);
+
+    const formatIdleTime = (sec: number) => {
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    };
+
+    // Initial Load: Fetch Frames & Start Webcam
+    useEffect(() => {
+        let stream: MediaStream | null = null;
         let cancelled = false;
 
         const init = async () => {
             try {
-                // 1. Load Available Frames and Filter by Template
-                const allFrames = await GetFrames() || [];
-                const availableFrames = allFrames.filter(f => !f.template || f.template === selectedTemplate);
-
+                // 1. Load Available Frames
+                const availableFrames = await GetFrames() || [{ id: 'none', label: 'No Frame' }];
                 if (!cancelled) {
                     setFrames(availableFrames);
                     if (!selectedFrame && availableFrames.length > 0) {
@@ -64,25 +93,23 @@ const CaptureScreen: React.FC = () => {
                     }
                 }
 
-                // 2. Start Camera Live View
-                await StartLiveView();
-                const url = await GetLiveViewURL();
-                if (!cancelled && url) {
-                    liveViewActiveRef.current = true;
-                    setLiveViewURL(url);
+                // 2. Start Webcam
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }
+                });
+
+                if (!cancelled) {
+                    setActiveStream(stream); // SAVE IN STATE
+                    // Try to attach if videoRef is ready now, or wait for the useEffect below
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = stream;
+                        videoRef.current.play();
+                    }
                     setReady(true);
-                } else if (!cancelled) {
-                    goToError('DigiCamControl not detected. Interactive layout requires main camera.');
                 }
             } catch (err) {
-                if (!cancelled) goToError('Camera initialization failed.');
-            }
-        };
-
-        const stopLiveViewIfActive = async () => {
-            if (liveViewActiveRef.current) {
-                liveViewActiveRef.current = false;
-                try { await StopLiveView(); } catch { }
+                console.error('Webcam fail:', err);
+                if (!cancelled) goToError('Webcam access denied or unavailable.');
             }
         };
 
@@ -90,10 +117,22 @@ const CaptureScreen: React.FC = () => {
 
         return () => {
             cancelled = true;
-            stopLiveViewIfActive();
-            if (pollingRef.current) clearInterval(pollingRef.current);
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
         };
     }, []);
+
+    // Ensure the stream is strictly attached to the newly rendered video element
+    // once the user clicks "Start Session!"
+    useEffect(() => {
+        if (sessionStarted && videoRef.current && activeStream) {
+            if (videoRef.current.srcObject !== activeStream) {
+                videoRef.current.srcObject = activeStream;
+                videoRef.current.play().catch((err: any) => console.error("Video play error:", err));
+            }
+        }
+    }, [sessionStarted, activeStream, currentSequence]); // Depend on currentSequence to reattach after flash/frozen frame
 
     // Fetch Config whenever selected Frame changes
     useEffect(() => {
@@ -107,47 +146,63 @@ const CaptureScreen: React.FC = () => {
             .catch(err => console.error("Failed to load layout config:", err));
     }, [selectedFrame]);
 
-    // Live View Polling
-    useEffect(() => {
-        if (!sessionStarted || !liveViewURL || frozen) return;
-
-        pollingRef.current = setInterval(() => {
-            if (imgRef.current && !frozen) {
-                imgRef.current.src = `${liveViewURL}?t=${Date.now()}`;
-            }
-        }, 80);
-
-        return () => {
-            if (pollingRef.current) {
-                clearInterval(pollingRef.current);
-                pollingRef.current = null;
-            }
-        };
-    }, [sessionStarted, liveViewURL, frozen]);
-
     // Capture Logic
     const performCapture = useCallback(async () => {
         setCapturing(true);
         setFlashTrigger(true);
         setFrozen(true);
 
-        if (imgRef.current) setFrozenImage(imgRef.current.src);
+        if (!videoRef.current) {
+            setCapturing(false);
+            setFlashTrigger(false);
+            setFrozen(false);
+            return;
+        }
+
+        const video = videoRef.current;
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+            setCapturing(false);
+            setFlashTrigger(false);
+            setFrozen(false);
+            return;
+        }
+
+        if (isMirrored) {
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+        }
+
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+
+        setFrozenImage(dataUrl);
 
         try {
-            const imagePath = await TriggerCapture(sessionId, currentSequence);
+            // Send the base64 snapshot to the Go backend
+            const imagePath = await SaveWebRTCImage(sessionId, currentSequence, dataUrl);
 
             // Fetch the actual saved image from backend as Base64 so we can render it statically in the box!
             const base64Data = await GetImageBase64(imagePath);
-            setCapturedImage(currentSequence, imagePath, base64Data, isMirrored);
+            setCapturedImage(currentSequence, imagePath, base64Data, false); // Pass false for mirrored because canvas already flipped it if needed
 
             setFlashTrigger(false);
             setFrozen(false);
             setFrozenImage(null);
             setCapturing(false);
 
-            if (capturedB64s.length === totalShots) {
+            // Use actual layout count instead of totalShots which might be wrong for custom frames
+            const finalTotalShots = frameConfig?.layouts?.length || totalShots;
+
+            // Immediately evaluate progression without async gap to prevent auto-capture race conditions
+            const currentCount = useAppStore.getState().capturedB64s.filter(x => x).length;
+            if (currentCount >= finalTotalShots) {
                 // If they are just retaking one shot, jump back to the end to trigger review
-                setCurrentSequence(totalShots);
+                setCurrentSequence(finalTotalShots);
             } else {
                 incrementSequence();
             }
@@ -157,7 +212,7 @@ const CaptureScreen: React.FC = () => {
             setFrozen(false);
             goToError('Camera capture failed.');
         }
-    }, [sessionId, currentSequence, setCapturedImage, capturedB64s.length, totalShots, setCurrentSequence, incrementSequence, goToError, isMirrored]);
+    }, [sessionId, currentSequence, setCapturedImage, totalShots, setCurrentSequence, incrementSequence, goToError, isMirrored, frameConfig]);
 
     const handleCapture = useCallback(() => {
         if (capturing || !ready || countdown !== null) return;
@@ -169,9 +224,23 @@ const CaptureScreen: React.FC = () => {
         }
     }, [capturing, ready, countdown, shutterDelay, performCapture]);
 
+    // Auto-capture progression
+    useEffect(() => {
+        if (sessionStarted && !reviewMode && ready && !capturing && countdown === null) {
+            const finalTotalShots = frameConfig?.layouts?.length || totalShots;
+            if (currentSequence < finalTotalShots) {
+                handleCapture();
+            }
+        }
+    }, [sessionStarted, reviewMode, ready, capturing, countdown, currentSequence, frameConfig, totalShots, handleCapture]);
+
     // Timer logic
     useEffect(() => {
         if (countdown === null) return;
+        if (reviewMode) {
+            setCountdown(null); // Force clear if reviewMode triggers
+            return;
+        }
 
         if (countdown === 0) {
             setCountdown(null);
@@ -188,30 +257,20 @@ const CaptureScreen: React.FC = () => {
 
     // Check Completion
     useEffect(() => {
-        if (currentSequence >= totalShots && currentSequence > 0 && !reviewMode) {
+        const finalTotalShots = frameConfig?.layouts?.length || totalShots;
+        if (currentSequence >= finalTotalShots && currentSequence > 0 && !reviewMode) {
             setReviewMode(true);
-            setReviewTimeLeft(15);
         }
-    }, [currentSequence, totalShots, reviewMode]);
+    }, [currentSequence, totalShots, reviewMode, frameConfig]);
 
-    // Review Countdown
-    useEffect(() => {
-        if (!reviewMode) return;
-        if (reviewTimeLeft <= 0) {
-            if (pollingRef.current) clearInterval(pollingRef.current);
-            if (liveViewActiveRef.current) {
-                liveViewActiveRef.current = false;
-                StopLiveView().catch(() => { });
-            }
-            goToProcessing();
-            return;
+    const handleConfirmAndPrint = () => {
+        // Stop webcam stream when moving to processing
+        if (videoRef.current && videoRef.current.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach(track => track.stop());
         }
-
-        const timer = setTimeout(() => {
-            setReviewTimeLeft((prev) => prev - 1);
-        }, 1000);
-        return () => clearTimeout(timer);
-    }, [reviewMode, reviewTimeLeft, goToProcessing]);
+        goToProcessing();
+    };
 
     // Dimensions setup for percentage mapping
     const baseWidth = selectedTemplate === 'strip_2x6' ? 600 : 1200;
@@ -227,14 +286,40 @@ const CaptureScreen: React.FC = () => {
 
     return (
         <div className="capture-screen">
-            {/* Navigation Back Button */}
-            <button
-                className="global-back-btn"
-                onClick={sessionStarted ? () => setSessionStarted(false) : goToTemplate}
-                title={sessionStarted ? "Back to Frame Selection" : "Back to Layout Selection"}
+            {/* Dynamic Back / Cancel Button */}
+            {sessionStarted ? (
+                <button
+                    className="global-back-btn"
+                    onClick={reset}
+                    style={{ background: 'rgba(239, 68, 68, 0.6)', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                    title="Cancel Session"
+                >
+                    ✕
+                </button>
+            ) : (
+                <button className="global-back-btn" onClick={goToTemplate} title="Back to Layout Selection">←</button>
+            )}
+
+            {/* Global Session Timer (Always Visible) */}
+            <div
+                style={{
+                    position: 'fixed',
+                    top: 20,
+                    right: 20,
+                    background: sessionTimeLeft <= 120 ? 'rgba(239, 68, 68, 0.9)' : 'rgba(0, 0, 0, 0.7)',
+                    border: `2px solid ${sessionTimeLeft <= 120 ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.2)'}`,
+                    padding: '10px 20px',
+                    borderRadius: 50,
+                    color: '#fff',
+                    zIndex: 1000,
+                    fontWeight: 'bold',
+                    fontSize: '1.2rem',
+                    boxShadow: sessionTimeLeft <= 120 ? '0 0 20px rgba(239, 68, 68, 0.8)' : '0 4px 15px rgba(0, 0, 0, 0.3)',
+                    transition: 'all 0.3s ease'
+                }}
             >
-                ←
-            </button>
+                {sessionTimeLeft <= 120 ? '⚠️ ' : '⏱️ '} Session Time: {formatIdleTime(sessionTimeLeft)}
+            </div>
 
             {/* Left Sidebar Menu */}
             {!sessionStarted && (
@@ -253,7 +338,7 @@ const CaptureScreen: React.FC = () => {
                                 <div
                                     className="capture-frame-preview"
                                     style={{
-                                        background: f.id === 'none' ? '#333' : `url('http://localhost:8080/frames/${f.id}.png') center/contain no-repeat`,
+                                        background: f.id === 'none' ? '#333' : `url('http://localhost:8080/frames/${getFrameFilename(f.filePath)}') center/contain no-repeat`,
                                     }}
                                 >
                                     {f.id === 'none' && <span>🚫</span>}
@@ -274,15 +359,19 @@ const CaptureScreen: React.FC = () => {
                         aspectRatio: workspaceAspect
                     }}
                 >
-                    {/* The Transparent PNG on top */}
-                    {selectedFrame && selectedFrame !== 'none' && (
-                        <div
-                            className="capture-workspace-overlay"
-                            style={{ background: `url('http://localhost:8080/frames/${selectedFrame}.png') center/cover` }}
-                        />
-                    )}
+                    {/* The Transparent Overlay */}
+                    {selectedFrame && selectedFrame !== 'none' && (() => {
+                        const frame = frames.find(f => f.id === selectedFrame);
+                        const frameFilename = frame ? getFrameFilename(frame.filePath) : '';
+                        return (
+                            <div
+                                className="capture-workspace-overlay"
+                                style={{ background: `url('http://localhost:8080/frames/${frameFilename}') center/cover` }}
+                            />
+                        );
+                    })()}
 
-                    {/* The Dynamic Layout Boxes */}
+                    {/* The Dynamic Layout Boxes (For Captured / Frozen Images Only) */}
                     {frameConfig && frameConfig.layouts && frameConfig.layouts.map((layout: any, index: number) => {
                         // Calculate percentage-based positioning so it scales perfectly with the workspace
                         const leftPct = (layout.x / baseWidth) * 100;
@@ -307,36 +396,56 @@ const CaptureScreen: React.FC = () => {
                                     height: `${heightPct}%`,
                                 }}
                             >
-                                {index < currentSequence && capturedB64s[index] && (
+                                {/* Show captured photo if it exists, UNLESS this is the actively capturing live slot right now */}
+                                {capturedB64s[index] && (reviewMode || index !== currentSequence) && (
                                     <img src={capturedB64s[index]} alt={`Shot ${index + 1}`} style={{ transform: capturedMirrored[index] ? 'scaleX(-1)' : 'none' }} />
                                 )}
 
-                                {index === currentSequence && sessionStarted && (
-                                    <>
-                                        {frozen && frozenImage ? (
-                                            <img src={frozenImage} alt="Frozen" style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }} />
-                                        ) : (
-                                            <img ref={imgRef} src={`${liveViewURL}?t=${Date.now()}`} alt="Live View" style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }} />
-                                        )}
-                                    </>
+                                {/* Show the frozen instant replay for the active slot right after the flash */}
+                                {index === currentSequence && !reviewMode && frozen && frozenImage && (
+                                    <img src={frozenImage} alt="Frozen" />
+                                )}
+
+                                {/* Retake Icon Hint */}
+                                {reviewMode && capturedB64s[index] && (
+                                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 10, pointerEvents: 'none', opacity: 0.6, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))' }}>
+                                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                                            <path d="M3 3v5h5" />
+                                        </svg>
+                                    </div>
                                 )}
                             </div>
                         );
                     })}
 
-                    {/* Fallback box if no layouts exist (e.g. "none" frame) */}
-                    {(!frameConfig || !frameConfig.layouts || selectedFrame === 'none') && sessionStarted && currentSequence < totalShots && (
-                        <div className="capture-spot" style={{ left: 0, top: 0, width: '100%', height: '100%' }}>
-                            {frozen && frozenImage ? (
-                                <img src={frozenImage} alt="Frozen" style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }} />
-                            ) : (
-                                <img ref={imgRef} src={`${liveViewURL}?t=${Date.now()}`} alt="Live View" style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }} />
-                            )}
-                        </div>
-                    )}
+                    {/* The Persistent Live Video Element */}
+                    {sessionStarted && !reviewMode && currentSequence < (frameConfig?.layouts?.length || totalShots) && (() => {
+                        const layout = (frameConfig && frameConfig.layouts) ? frameConfig.layouts[currentSequence] : { x: 0, y: 0, width: baseWidth, height: baseHeight };
+                        const leftPct = (layout.x / baseWidth) * 100;
+                        const topPct = (layout.y / baseHeight) * 100;
+                        const widthPct = (layout.width / baseWidth) * 100;
+                        const heightPct = (layout.height / baseHeight) * 100;
+
+                        return (
+                            <div
+                                className="capture-spot capture-video-wrapper"
+                                style={{
+                                    left: `${leftPct}%`,
+                                    top: `${topPct}%`,
+                                    width: `${widthPct}%`,
+                                    height: `${heightPct}%`,
+                                    visibility: frozen ? 'hidden' : 'visible',
+                                    zIndex: 6 // Must be higher than the default z-index: 5 of capture-spots to not be hidden by empty black box
+                                }}
+                            >
+                                <video ref={videoRef} autoPlay playsInline muted style={{ transform: isMirrored ? 'scaleX(-1)' : 'none', width: '100%', height: '100%', objectFit: 'cover' }} />
+                            </div>
+                        );
+                    })()}
 
                     {/* Countdown Overlay */}
-                    {countdown !== null && (
+                    {!reviewMode && countdown !== null && (
                         <div className="capture-countdown-overlay">
                             {countdown}
                         </div>
@@ -348,26 +457,22 @@ const CaptureScreen: React.FC = () => {
                     {!sessionStarted ? (
                         <button
                             className="capture-start-btn"
-                            disabled={!ready || !selectedFrame}
+                            disabled={!ready}
                             onClick={() => setSessionStarted(true)}
                         >
-                            {!selectedFrame ? 'Select a Frame...' : ready ? 'Start Session! 📸' : 'Warming up camera...'}
+                            {ready ? 'Start Session! 📸' : 'Warming up camera...'}
                         </button>
                     ) : reviewMode ? (
                         <div className="review-controls">
                             <button className="capture-action-btn" onClick={toggleAllMirrors} title="Flip all photos">
                                 🪞 Flip All
                             </button>
-                            <div className="review-timer">
-                                Finalizing in <span>{reviewTimeLeft}s</span>
-                            </div>
                             <button
                                 className="capture-start-btn"
-                                onClick={() => setReviewTimeLeft(0)}
+                                onClick={handleConfirmAndPrint}
                             >
                                 Confirm & Print! ✨
                             </button>
-                            <p className="review-hint">Click a photo to retake it</p>
                         </div>
                     ) : (
                         ready && !frozen && !capturing && countdown === null && currentSequence < totalShots && (
@@ -377,8 +482,8 @@ const CaptureScreen: React.FC = () => {
                                 </button>
 
                                 <button className="capture-action-btn" onClick={() => {
-                                    if (shutterDelay === 0) setShutterDelay(3);
-                                    else if (shutterDelay === 3) setShutterDelay(5);
+                                    if (shutterDelay === 0) setShutterDelay(10);
+                                    else if (shutterDelay === 10) setShutterDelay(5);
                                     else setShutterDelay(0);
                                 }}>
                                     ⏱️ {shutterDelay === 0 ? 'Off' : `${shutterDelay}s`}
@@ -394,11 +499,8 @@ const CaptureScreen: React.FC = () => {
 
                 {sessionStarted && (
                     <div className="capture-status-badge">
-                        <div className="capture-counter">
-                            {Math.min(currentSequence + 1, totalShots)} / {totalShots}
-                        </div>
                         <div className="capture-progress">
-                            {Array.from({ length: totalShots }).map((_, i) => (
+                            {Array.from({ length: frameConfig?.layouts?.length || totalShots }).map((_, i) => (
                                 <div
                                     key={i}
                                     className={`capture-dot ${i < currentSequence ? 'done' : ''} ${i === currentSequence ? 'active' : ''}`}

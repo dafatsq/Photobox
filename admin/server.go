@@ -560,35 +560,16 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 		w.Write([]byte(adminPage))
 	})
 
-	// 2. Serve uploaded PNG frame files directly to the admin UI for thumbnails
-	// E.g., /frames/my_cool_frame.png
-	mux.HandleFunc("/frames/", func(w http.ResponseWriter, r *http.Request) {
-		id := strings.TrimPrefix(r.URL.Path, "/frames/")
-		if !strings.HasSuffix(id, ".png") {
-			http.Error(w, "Not found", 404)
-			return
+	// 2. Serve the frames directory statically so frontend and admin can load any file
+	// E.g., /frames/frame1.png or /frames/frame1.svg
+	fs := http.FileServer(http.Dir(cfg.FramesDir()))
+	mux.Handle("/frames/", http.StripPrefix("/frames/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, ".svg") {
+			w.Header().Set("Content-Type", "image/svg+xml")
 		}
-
-		// Map the ID back to a file path
-		frameID := strings.TrimSuffix(id, ".png")
-		frames := cfg.GetFrames()
-		var filePath string
-		for _, f := range frames {
-			if f.ID == frameID && f.FilePath != "" {
-				filePath = f.FilePath
-				break
-			}
-		}
-
-		if filePath == "" {
-			http.Error(w, "Frame not found", 404)
-			return
-		}
-
-		// Disable caching for thumbnail preview to see instant updates
 		w.Header().Set("Cache-Control", "no-store")
-		http.ServeFile(w, r, filePath)
-	})
+		fs.ServeHTTP(w, r)
+	})))
 
 	// 3. API: GET/POST /api/config
 	mux.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {

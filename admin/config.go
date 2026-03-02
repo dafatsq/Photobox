@@ -97,6 +97,9 @@ func (c *AdminConfig) Load() error {
 	}
 
 	c.bypassPayment = state.BypassPayment
+
+	// Fallback removed to allow empty frame list or custom frames exclusively
+
 	c.frames = state.Frames
 
 	log.Printf("[Admin Config] Loaded %d frames from %s", len(c.frames), c.ConfigFilePath())

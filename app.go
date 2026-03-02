@@ -136,22 +136,9 @@ func (a *App) SaveWebRTCImage(sessionID string, sequence int, base64Data string)
 	return filename, nil
 }
 
-// flipHorizontal returns a new horizontally mirrored image
-func flipHorizontal(img image.Image) image.Image {
-	bounds := img.Bounds()
-	flipped := image.NewRGBA(bounds)
-	w, h := bounds.Max.X, bounds.Max.Y
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
-			flipped.Set(w-1-x, y, img.At(x, y))
-		}
-	}
-	return flipped
-}
-
 // ProcessComposite combines captured images into a composite frame based on templateID and frameID.
 // Supported templates: "strip_2x6" (4 photos in a vertical strip), "postcard_4x6" (4 photos in a grid).
-func (a *App) ProcessComposite(images []string, mirrored []bool, templateID string, frameID string) (string, error) {
+func (a *App) ProcessComposite(images []string, templateID string, frameID string) (string, error) {
 	if len(images) == 0 {
 		return "", fmt.Errorf("no images provided")
 	}
@@ -161,7 +148,7 @@ func (a *App) ProcessComposite(images []string, mirrored []bool, templateID stri
 
 	// Load all source images
 	srcImages := make([]image.Image, 0, len(images))
-	for i, imgPath := range images {
+	for _, imgPath := range images {
 		f, err := os.Open(imgPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to open image %s: %w", imgPath, err)
@@ -177,12 +164,6 @@ func (a *App) ProcessComposite(images []string, mirrored []bool, templateID stri
 		if err != nil {
 			return "", fmt.Errorf("failed to decode image %s: %w", imgPath, err)
 		}
-
-		// Apply mirroring if requested
-		if i < len(mirrored) && mirrored[i] {
-			img = flipHorizontal(img)
-		}
-
 		srcImages = append(srcImages, img)
 	}
 

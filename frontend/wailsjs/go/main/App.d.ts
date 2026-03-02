@@ -19,7 +19,7 @@ export function IsPaymentBypassed():Promise<boolean>;
 
 export function PrintPhoto(arg1:string):Promise<void>;
 
-export function ProcessComposite(arg1:Array<string>,arg2:Array<boolean>,arg3:string,arg4:string):Promise<string>;
+export function ProcessComposite(arg1:Array<string>,arg2:string,arg3:string):Promise<string>;
 
 export function SaveWebRTCImage(arg1:string,arg2:number,arg3:string):Promise<string>;
 

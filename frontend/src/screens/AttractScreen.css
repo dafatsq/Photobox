@@ -74,14 +74,7 @@
     animation: cta-blink 2s ease-in-out infinite;
 }
 
-.attract-pulse-ring {
-    position: absolute;
-    width: 180px;
-    height: 50px;
-    border-radius: 25px;
-    border: 1px solid rgba(139, 92, 246, 0.3);
-    animation: ring-pulse 2s ease-in-out infinite;
-}
+
 
 .attract-particles {
     position: absolute;
@@ -138,22 +131,7 @@
     }
 }
 
-@keyframes ring-pulse {
-    0% {
-        transform: scale(0.9);
-        opacity: 0.5;
-    }
 
-    50% {
-        transform: scale(1.1);
-        opacity: 0;
-    }
-
-    100% {
-        transform: scale(0.9);
-        opacity: 0.5;
-    }
-}
 
 @keyframes particle-rise {
     0% {

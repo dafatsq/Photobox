@@ -30,7 +30,6 @@ const AttractScreen: React.FC = () => {
                 <h1 className="attract-title">Photobox</h1>
                 <p className="attract-subtitle">Capture your moments</p>
                 <div className="attract-cta">
-                    <span className="attract-pulse-ring" />
                     <span className="attract-cta-text">Tap anywhere to start</span>
                 </div>
             </div>

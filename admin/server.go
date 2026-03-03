@@ -86,9 +86,13 @@ h1 span{color:#e2e8f0}
 .editor-canvas img { display: block; width: 100%; height: 100%; pointer-events: none; }
 .canvas-box { position: absolute; border: 2px dashed rgba(255,42,109,0.5); background: rgba(255,42,109,0.1); display: flex; align-items: center; justify-content: center; font-weight: bold; color: rgba(255,255,255,0.5); text-shadow: 0 1px 3px rgba(0,0,0,0.8); font-size: 1.5rem; cursor: move; transition: border-color .2s, background .2s, color .2s; }
 .canvas-box:hover { border-color: #05d9e8; background: rgba(5,217,232,0.3); color: #fff; z-index: 10; }
-.resize-handle { position: absolute; width: 30px; height: 30px; right: -10px; bottom: -10px; cursor: nwse-resize; z-index: 15; }
-.resize-handle::after { content: ''; position: absolute; width: 12px; height: 12px; border-right: 4px solid #05d9e8; border-bottom: 4px solid #05d9e8; right: 10px; bottom: 10px; opacity: 0; transition: opacity .2s; }
-.canvas-box:hover .resize-handle::after, .resize-handle:hover::after { opacity: 1; }
+.resize-handle { position: absolute; width: 24px; height: 24px; z-index: 15; background: rgba(5,217,232,0.6); border: 2px solid #fff; border-radius: 50%; opacity: 0; transition: opacity .2s, transform .2s; }
+.canvas-box:hover .resize-handle { opacity: 1; }
+.resize-handle:hover { transform: scale(1.2); background: #05d9e8; }
+.resize-handle.tl { top: -12px; left: -12px; cursor: nwse-resize; }
+.resize-handle.tr { top: -12px; right: -12px; cursor: nesw-resize; }
+.resize-handle.bl { bottom: -12px; left: -12px; cursor: nesw-resize; }
+.resize-handle.br { bottom: -12px; right: -12px; cursor: nwse-resize; }
 
 .btn { background: #6366f1; color: #fff; border: none; padding: .5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; width: 100%; margin-top: 1rem; transition: background .2s; }
 .btn:hover { background: #4f46e5; }
@@ -106,6 +110,13 @@ h1 span{color:#e2e8f0}
       <span id="bypassBadge" class="badge off">OFF</span>
     </label>
     <div id="bypassToggle" class="switch" onclick="toggleBypass()"></div>
+  </div>
+  <div class="toggle-row" style="margin-top:0.5rem">
+    <label>
+      Fullscreen Mode
+      <span id="fullscreenBadge" class="badge off">OFF</span>
+    </label>
+    <div id="fullscreenToggle" class="switch" onclick="toggleFullscreen()"></div>
   </div>
   <div class="toggle-row" style="margin-top:0.5rem">
     <label>Camera Mode</label>
@@ -179,7 +190,7 @@ h1 span{color:#e2e8f0}
 </div>
 
 <script>
-let config = { bypassPayment: false, frames: [] };
+let config = { bypassPayment: false, fullscreen: false, frames: [] };
 
 async function load() {
   const r = await fetch('/api/config');
@@ -193,7 +204,7 @@ async function updateCameraSettings() {
   await fetch('/api/config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ bypassPayment: config.bypassPayment, cameraType: config.cameraType, webcamId: config.webcamId })
+    body: JSON.stringify({ bypassPayment: config.bypassPayment, cameraType: config.cameraType, webcamId: config.webcamId, fullscreen: config.fullscreen })
   });
   render();
   flash('Camera settings saved');
@@ -208,6 +219,16 @@ function render() {
   } else {
     t.classList.remove('on');
     b.className = 'badge off'; b.textContent = 'OFF';
+  }
+  
+  const ft = document.getElementById('fullscreenToggle');
+  const fb = document.getElementById('fullscreenBadge');
+  if (config.fullscreen) {
+    ft.classList.add('on');
+    fb.className = 'badge on'; fb.textContent = 'ON';
+  } else {
+    ft.classList.remove('on');
+    fb.className = 'badge off'; fb.textContent = 'OFF';
   }
 
   const cType = document.getElementById('cameraTypeSelect');
@@ -258,6 +279,17 @@ function render() {
 }
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+async function toggleFullscreen() {
+  config.fullscreen = !config.fullscreen;
+  await fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bypassPayment: config.bypassPayment, cameraType: config.cameraType, webcamId: config.webcamId, fullscreen: config.fullscreen })
+  });
+  render();
+  flash('Fullscreen ' + (config.fullscreen ? 'enabled' : 'disabled'));
+}
 
 async function toggleBypass() {
   config.bypassPayment = !config.bypassPayment;
@@ -455,7 +487,10 @@ function renderCanvasOverlays() {
          'style="left:' + lo.x + 'px; top:' + lo.y + 'px; width:' + lo.width + 'px; height:' + lo.height + 'px;" ' +
          'data-idx="' + i + '">' +
       (i+1) +
-      '<div class="resize-handle" data-idx="' + i + '"></div>' +
+      '<div class="resize-handle tl" data-idx="' + i + '" data-handle="tl"></div>' +
+      '<div class="resize-handle tr" data-idx="' + i + '" data-handle="tr"></div>' +
+      '<div class="resize-handle bl" data-idx="' + i + '" data-handle="bl"></div>' +
+      '<div class="resize-handle br" data-idx="' + i + '" data-handle="br"></div>' +
     '</div>'
   ).join('');
 }
@@ -471,11 +506,13 @@ let initialLayout = null;
 let panStartX, panStartY, panScrollLeft, panScrollTop;
 
 const canvasWrap = document.getElementById('canvasWrap');
+let activeHandle = null;
 
 canvasWrap.addEventListener('mousedown', (e) => {
   if (e.target.classList.contains('resize-handle')) {
     isResizing = true;
     activeIndex = parseInt(e.target.dataset.idx, 10);
+    activeHandle = e.target.dataset.handle;
     startDrag(e);
   } else if (e.target.classList.contains('canvas-box')) {
     isDragging = true;
@@ -527,12 +564,51 @@ function onMouseMove(e) {
     lo.y = Math.round(initialLayout.y + dy);
   } else if (isResizing) {
     const ratio = initialLayout.width / initialLayout.height;
-    if (Math.abs(dx) > Math.abs(dy)) {
-      lo.width = Math.max(10, Math.round(initialLayout.width + dx));
-      lo.height = Math.max(10, Math.round(lo.width / ratio));
-    } else {
-      lo.height = Math.max(10, Math.round(initialLayout.height + dy));
-      lo.width = Math.max(10, Math.round(lo.height * ratio));
+    
+    // Handle different corners
+    if (activeHandle === 'br') {
+      if (Math.abs(dx) > Math.abs(dy)) {
+        lo.width = Math.max(10, Math.round(initialLayout.width + dx));
+        lo.height = Math.round(lo.width / ratio);
+      } else {
+        lo.height = Math.max(10, Math.round(initialLayout.height + dy));
+        lo.width = Math.round(lo.height * ratio);
+      }
+    } else if (activeHandle === 'bl') {
+      // Bottom-Left
+      if (Math.abs(dx) > Math.abs(dy)) {
+        lo.width = Math.max(10, Math.round(initialLayout.width - dx));
+        lo.height = Math.round(lo.width / ratio);
+        lo.x = Math.round(initialLayout.x + (initialLayout.width - lo.width));
+      } else {
+        lo.height = Math.max(10, Math.round(initialLayout.height + dy));
+        lo.width = Math.round(lo.height * ratio);
+        lo.x = Math.round(initialLayout.x + (initialLayout.width - lo.width));
+      }
+    } else if (activeHandle === 'tr') {
+      // Top-Right
+      if (Math.abs(dx) > Math.abs(dy)) {
+        lo.width = Math.max(10, Math.round(initialLayout.width + dx));
+        lo.height = Math.round(lo.width / ratio);
+        lo.y = Math.round(initialLayout.y + (initialLayout.height - lo.height));
+      } else {
+        lo.height = Math.max(10, Math.round(initialLayout.height - dy));
+        lo.width = Math.round(lo.height * ratio);
+        lo.y = Math.round(initialLayout.y + (initialLayout.height - lo.height));
+      }
+    } else if (activeHandle === 'tl') {
+      // Top-Left
+      if (Math.abs(dx) > Math.abs(dy)) {
+        lo.width = Math.max(10, Math.round(initialLayout.width - dx));
+        lo.height = Math.round(lo.width / ratio);
+        lo.x = Math.round(initialLayout.x + (initialLayout.width - lo.width));
+        lo.y = Math.round(initialLayout.y + (initialLayout.height - lo.height));
+      } else {
+        lo.height = Math.max(10, Math.round(initialLayout.height - dy));
+        lo.width = Math.round(lo.height * ratio);
+        lo.x = Math.round(initialLayout.x + (initialLayout.width - lo.width));
+        lo.y = Math.round(initialLayout.y + (initialLayout.height - lo.height));
+      }
     }
   }
   
@@ -591,6 +667,7 @@ type configResponse struct {
 	Frames           []Frame        `json:"frames"`
 	CameraType       string         `json:"cameraType"`
 	WebcamID         string         `json:"webcamId"`
+	Fullscreen       bool           `json:"fullscreen"`
 	AvailableCameras []CameraDevice `json:"availableCameras"`
 }
 
@@ -599,6 +676,7 @@ type configUpdateRequest struct {
 	BypassPayment bool   `json:"bypassPayment"`
 	CameraType    string `json:"cameraType"`
 	WebcamID      string `json:"webcamId"`
+	Fullscreen    bool   `json:"fullscreen"`
 }
 
 // StartAdminServer launches the admin HTTP server on the given port.
@@ -650,6 +728,7 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 				Frames:           cfg.GetFrames(),
 				CameraType:       cfg.GetCameraType(),
 				WebcamID:         cfg.GetWebcamID(),
+				Fullscreen:       cfg.GetFullscreen(),
 				AvailableCameras: cfg.GetAvailableCameras(),
 			}
 			w.Header().Set("Content-Type", "application/json")
@@ -666,6 +745,7 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 				cfg.SetCameraType(body.CameraType)
 			}
 			cfg.SetWebcamID(body.WebcamID)
+			cfg.SetFullscreen(body.Fullscreen)
 			w.WriteHeader(http.StatusOK)
 
 		default:

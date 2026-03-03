@@ -58,6 +58,10 @@ export function SetAvailableCameras(arg1) {
   return window['go']['main']['App']['SetAvailableCameras'](arg1);
 }
 
+export function SetFullscreen(arg1) {
+  return window['go']['main']['App']['SetFullscreen'](arg1);
+}
+
 export function StartLiveView() {
   return window['go']['main']['App']['StartLiveView']();
 }

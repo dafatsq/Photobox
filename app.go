@@ -16,6 +16,7 @@ import (
 	"photobox/admin"
 	"photobox/hardware"
 
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 	xdraw "golang.org/x/image/draw"
 )
 
@@ -54,6 +55,22 @@ func NewApp(camera hardware.CameraDriver, printer hardware.PrinterDriver, adminC
 // so we can call the runtime methods.
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+
+	// Handle fullscreen changes coming from Admin Panel
+	a.adminCfg.SetOnFullscreenChange(func(enabled bool) {
+		if enabled {
+			runtime.WindowFullscreen(ctx)
+		} else {
+			runtime.WindowUnfullscreen(ctx)
+		}
+	})
+
+	// Initial Sync
+	if a.adminCfg.GetFullscreen() {
+		runtime.WindowFullscreen(ctx)
+	} else {
+		runtime.WindowUnfullscreen(ctx)
+	}
 }
 
 // IsPaymentBypassed returns true if the admin has enabled payment bypass.
@@ -79,6 +96,16 @@ func (a *App) GetWebcamID() string {
 // SetAvailableCameras lets the frontend report the host machine's webcams to the admin panel
 func (a *App) SetAvailableCameras(cameras []admin.CameraDevice) {
 	a.adminCfg.SetAvailableCameras(cameras)
+}
+
+// SetFullscreen toggles the window fullscreen state
+func (a *App) SetFullscreen(enabled bool) {
+	a.adminCfg.SetFullscreen(enabled)
+	if enabled {
+		runtime.WindowFullscreen(a.ctx)
+	} else {
+		runtime.WindowUnfullscreen(a.ctx)
+	}
 }
 
 // CheckPaymentStatus checks the QRIS webhook for a given transaction ID.

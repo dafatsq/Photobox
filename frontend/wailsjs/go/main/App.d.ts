@@ -31,6 +31,8 @@ export function SendEmail(arg1:string,arg2:string):Promise<void>;
 
 export function SetAvailableCameras(arg1:Array<admin.CameraDevice>):Promise<void>;
 
+export function SetFullscreen(arg1:boolean):Promise<void>;
+
 export function StartLiveView():Promise<void>;
 
 export function StopLiveView():Promise<void>;

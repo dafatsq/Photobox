@@ -14,6 +14,7 @@ type persistedState struct {
 	Frames        []Frame `json:"frames"`
 	CameraType    string  `json:"cameraType"` // "dslr" or "webcam"
 	WebcamID      string  `json:"webcamId"`
+	Fullscreen    bool    `json:"fullscreen"`
 }
 
 // PhotoLayout defines the exact coordinates and size for a single photo in the composite.
@@ -41,13 +42,15 @@ type Frame struct {
 
 // AdminConfig holds all admin-configurable settings, safe for concurrent access.
 type AdminConfig struct {
-	mu               sync.RWMutex
-	bypassPayment    bool
-	frames           []Frame
-	framesDir        string // directory where PNG frame files are stored
-	cameraType       string
-	webcamID         string
-	availableCameras []CameraDevice
+	mu                 sync.RWMutex
+	bypassPayment      bool
+	frames             []Frame
+	framesDir          string // directory where PNG frame files are stored
+	cameraType         string
+	webcamID           string
+	fullscreen         bool
+	availableCameras   []CameraDevice
+	onFullscreenChange func(bool)
 }
 
 // NewAdminConfig creates a config with sensible defaults and attempts to load existing data.
@@ -58,6 +61,7 @@ func NewAdminConfig(framesDir string) *AdminConfig {
 		frames:           []Frame{},
 		cameraType:       "dslr",
 		webcamID:         "",
+		fullscreen:       false,
 		availableCameras: []CameraDevice{},
 	}
 
@@ -82,6 +86,7 @@ func (c *AdminConfig) Save() error {
 		Frames:        make([]Frame, len(c.frames)),
 		CameraType:    c.cameraType,
 		WebcamID:      c.webcamID,
+		Fullscreen:    c.fullscreen,
 	}
 	copy(state.Frames, c.frames)
 
@@ -119,6 +124,7 @@ func (c *AdminConfig) Load() error {
 		c.cameraType = "dslr"
 	}
 	c.webcamID = state.WebcamID
+	c.fullscreen = state.Fullscreen
 
 	log.Printf("[Admin Config] Loaded %d frames from %s", len(c.frames), c.ConfigFilePath())
 	return nil
@@ -137,6 +143,12 @@ func (c *AdminConfig) SetBypassPayment(val bool) {
 	if err := c.Save(); err != nil {
 		log.Printf("[Admin Config] Failed to save after setting bypass: %v", err)
 	}
+}
+
+func (c *AdminConfig) SetOnFullscreenChange(fn func(bool)) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.onFullscreenChange = fn
 }
 
 func (c *AdminConfig) GetCameraType() string {
@@ -166,6 +178,25 @@ func (c *AdminConfig) SetWebcamID(val string) {
 	c.webcamID = val
 	if err := c.Save(); err != nil {
 		log.Printf("[Admin Config] Failed to save after setting webcamID: %v", err)
+	}
+}
+
+func (c *AdminConfig) GetFullscreen() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.fullscreen
+}
+
+func (c *AdminConfig) SetFullscreen(val bool) {
+	c.mu.Lock()
+	cb := c.onFullscreenChange
+	c.fullscreen = val
+	if err := c.Save(); err != nil {
+		log.Printf("[Admin Config] Failed to save after setting fullscreen: %v", err)
+	}
+	c.mu.Unlock()
+	if cb != nil {
+		cb(val)
 	}
 }
 

@@ -73,6 +73,19 @@ func (a *App) startup(ctx context.Context) {
 	}
 }
 
+// shutdown is called when the app is closing. Cleans up resources.
+func (a *App) shutdown(ctx context.Context) {
+	fmt.Println("[APP] Shutdown called — cleaning up...")
+
+	// Stop the DSLRBridge process if running (Windows only)
+	type bridgeStopper interface {
+		StopBridge()
+	}
+	if stopper, ok := a.camera.(bridgeStopper); ok {
+		stopper.StopBridge()
+	}
+}
+
 // IsPaymentBypassed returns true if the admin has enabled payment bypass.
 func (a *App) IsPaymentBypassed() bool {
 	return a.adminCfg.GetBypassPayment()

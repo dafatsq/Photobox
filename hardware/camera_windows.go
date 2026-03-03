@@ -8,142 +8,317 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
 const (
-	// digiCamControl default web server address
-	dccBaseURL = "http://localhost:5513"
-	dccTimeout = 30 * time.Second
+	bridgePort    = 5513
+	bridgeBaseURL = "http://localhost:5513"
+	bridgeTimeout = 30 * time.Second
 )
 
-// WinCamera implements CameraDriver for Windows using digiCamControl's HTTP API.
-// digiCamControl must be running with its web server enabled (default port 5513).
+// WinCamera implements CameraDriver for Windows using the DSLRBridge process.
+// DSLRBridge is a lightweight C# process that wraps digiCamControl's camera
+// device libraries, providing direct DSLR control without needing the full
+// digiCamControl application to be running.
 type WinCamera struct {
-	client *http.Client
+	client    *http.Client
+	bridgeCmd *exec.Cmd
+	bridgeMu  sync.Mutex
+	outputDir string
 }
 
 func NewWinCamera() *WinCamera {
-	return &WinCamera{
-		client: &http.Client{Timeout: dccTimeout},
+	cam := &WinCamera{
+		client: &http.Client{Timeout: bridgeTimeout},
 	}
+	return cam
 }
 
-// Capture triggers a capture via digiCamControl's scripting HTTP API and downloads the result.
-func (w *WinCamera) Capture(filename string) error {
-	// Get the DCC session folder and count existing .jpg files before capture
-	sessionFolder, err := w.getDCCSessionFolder()
-	if err != nil {
-		println("[DCC] Could not get session folder:", err.Error(), "— trying filelist fallback")
-		sessionFolder = ""
-	}
-	println("[DCC] Session folder:", sessionFolder)
+// EnsureBridge starts the DSLRBridge process if it's not already running.
+// It looks for DSLRBridge.exe relative to the current executable.
+func (w *WinCamera) EnsureBridge() error {
+	w.bridgeMu.Lock()
+	defer w.bridgeMu.Unlock()
 
-	// Count existing files before capture (for comparison)
-	filesBefore := w.listJPEGs(sessionFolder)
-	println("[DCC] Files before capture:", len(filesBefore))
-
-	// Send capture command via dcc's scripting API (slc=capture)
-	println("[DCC] Sending slc=capture request...")
-	resp, err := w.client.Get(dccBaseURL + "/?slc=capture")
-	if err != nil {
-		println("[DCC] slc=capture request error:", err.Error())
-		return fmt.Errorf("digiCamControl capture request failed: %w", err)
-	}
-	body, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	println("[DCC] slc=capture status:", resp.StatusCode, "body:", string(body))
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("digiCamControl capture failed (HTTP %d): %s", resp.StatusCode, string(body))
-	}
-
-	// Poll until a new .jpg file appears in the session folder (up to 20s)
-	println("[DCC] Polling for new image in folder:", sessionFolder)
-	deadline := time.Now().Add(20 * time.Second)
-	var newestFile string
-	for time.Now().Before(deadline) {
-		filesAfter := w.listJPEGs(sessionFolder)
-		println("[DCC] Files after capture:", len(filesAfter))
-		// Look for a file not present before
-		for _, f := range filesAfter {
-			found := false
-			for _, bf := range filesBefore {
-				if f == bf {
-					found = true
-					break
-				}
-			}
-			if !found {
-				newestFile = f
-				println("[DCC] New file detected:", newestFile)
-				break
-			}
+	// Check if bridge is already running and responsive
+	if w.bridgeCmd != nil && w.bridgeCmd.Process != nil {
+		if w.pingBridge() {
+			return nil
 		}
-		if newestFile != "" {
-			break
+	}
+
+	// Find DSLRBridge.exe — look in several places
+	bridgePath := w.findBridgeExe()
+	if bridgePath == "" {
+		return fmt.Errorf("DSLRBridge.exe not found — please build the DSLRBridge project")
+	}
+	println("[DSLRBridge] Found at:", bridgePath)
+
+	// Set up output directory
+	w.outputDir = filepath.Join(os.TempDir(), "DSLRBridge_Captures")
+	os.MkdirAll(w.outputDir, 0755)
+
+	// Launch bridge process
+	cmd := exec.Command(bridgePath,
+		"--port", fmt.Sprintf("%d", bridgePort),
+		"--output", w.outputDir,
+	)
+	cmd.Dir = filepath.Dir(bridgePath) // Run from the bridge's directory (for EDSDK.dll)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start DSLRBridge: %w", err)
+	}
+	w.bridgeCmd = cmd
+	println("[DSLRBridge] Started with PID:", cmd.Process.Pid)
+
+	// Wait for bridge to become responsive (up to 10 seconds)
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if w.pingBridge() {
+			println("[DSLRBridge] Bridge is responsive")
+			return nil
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
 
-	if newestFile == "" {
-		// Fallback: try filelist.json as last resort
-		println("[DCC] No new filesystem file found, trying filelist.json fallback...")
-		return w.downloadLastCapture(filename)
-	}
-
-	println("[DCC] Copying", newestFile, "to", filename)
-	return w.copyFile(newestFile, filename)
+	return fmt.Errorf("DSLRBridge started but not responding on port %d", bridgePort)
 }
 
-// getDCCSessionFolder queries DCC for the current session's save folder.
-func (w *WinCamera) getDCCSessionFolder() (string, error) {
-	resp, err := w.client.Get(dccBaseURL + "/?slc=get&param1=session.folder")
-	if err != nil {
-		return "", err
+// StopBridge gracefully shuts down the DSLRBridge process.
+func (w *WinCamera) StopBridge() {
+	w.bridgeMu.Lock()
+	defer w.bridgeMu.Unlock()
+
+	if w.bridgeCmd == nil || w.bridgeCmd.Process == nil {
+		return
 	}
-	defer resp.Body.Close()
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
+
+	println("[DSLRBridge] Shutting down bridge...")
+	// Send shutdown command via HTTP
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get(bridgeBaseURL + "/shutdown")
+	if err == nil {
+		io.ReadAll(resp.Body)
+		resp.Body.Close()
 	}
-	folder := strings.TrimSpace(string(b))
-	if folder == "" || folder == "null" {
-		return "", fmt.Errorf("DCC returned empty session folder")
+
+	// Wait for process to exit (up to 5 seconds)
+	done := make(chan error, 1)
+	go func() { done <- w.bridgeCmd.Wait() }()
+	select {
+	case <-done:
+		println("[DSLRBridge] Bridge process exited cleanly")
+	case <-time.After(5 * time.Second):
+		println("[DSLRBridge] Bridge process did not exit, killing...")
+		w.bridgeCmd.Process.Kill()
 	}
-	return folder, nil
+	w.bridgeCmd = nil
 }
 
-// listJPEGs returns all .jpg files in the given directory (non-recursive).
-func (w *WinCamera) listJPEGs(dir string) []string {
-	if dir == "" {
-		return nil
+// findBridgeExe searches for DSLRBridge.exe in common locations.
+func (w *WinCamera) findBridgeExe() string {
+	candidates := []string{}
+
+	// 1. Next to the current executable
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		candidates = append(candidates, filepath.Join(exeDir, "DSLRBridge.exe"))
+		candidates = append(candidates, filepath.Join(exeDir, "DSLRBridge", "DSLRBridge.exe"))
 	}
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil
+
+	// 2. Relative to working directory (for development)
+	if cwd, err := os.Getwd(); err == nil {
+		candidates = append(candidates,
+			filepath.Join(cwd, "DSLRBridge", "bin", "x86", "Debug", "DSLRBridge.exe"),
+			filepath.Join(cwd, "DSLRBridge", "bin", "x86", "Release", "DSLRBridge.exe"),
+			filepath.Join(cwd, "DSLRBridge", "DSLRBridge.exe"),
+		)
 	}
-	var files []string
-	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(strings.ToLower(e.Name()), ".jpg") {
-			files = append(files, dir+"\\"+e.Name())
+
+	for _, path := range candidates {
+		if _, err := os.Stat(path); err == nil {
+			return path
 		}
 	}
-	return files
+	return ""
 }
 
-// copyFile copies src to dst, retrying if the source is still locked by DCC.
+// pingBridge checks if the bridge HTTP server is responding.
+func (w *WinCamera) pingBridge() bool {
+	client := &http.Client{Timeout: 1 * time.Second}
+	resp, err := client.Get(bridgeBaseURL + "/ping")
+	if err != nil {
+		return false
+	}
+	io.ReadAll(resp.Body)
+	resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
+}
+
+// bridgeResponse is the generic JSON response from the bridge.
+type bridgeResponse struct {
+	Status  string `json:"status"`
+	Error   string `json:"error,omitempty"`
+	File    string `json:"file,omitempty"`
+	Camera  string `json:"camera,omitempty"`
+	Battery int    `json:"battery,omitempty"`
+}
+
+// Capture triggers a capture via the DSLRBridge and copies the result to filename.
+func (w *WinCamera) Capture(filename string) error {
+	if err := w.EnsureBridge(); err != nil {
+		return fmt.Errorf("DSLRBridge not available: %w", err)
+	}
+
+	println("[DSLRBridge] Sending capture request...")
+	resp, err := w.client.Get(bridgeBaseURL + "/capture")
+	if err != nil {
+		return fmt.Errorf("capture request failed: %w", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	println("[DSLRBridge] Capture response:", string(body))
+
+	var result bridgeResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return fmt.Errorf("failed to parse capture response: %w", err)
+	}
+
+	if result.Status != "ok" {
+		return fmt.Errorf("capture failed: %s", result.Error)
+	}
+
+	if result.File == "" {
+		return fmt.Errorf("capture succeeded but no file path returned")
+	}
+
+	// The bridge returns forward slashes; convert back to native path
+	srcPath := strings.ReplaceAll(result.File, "/", string(os.PathSeparator))
+	println("[DSLRBridge] Copying", srcPath, "to", filename)
+	return w.copyFile(srcPath, filename)
+}
+
+// LiveViewURL returns the DSLRBridge live view JPEG endpoint.
+func (w *WinCamera) LiveViewURL() string {
+	if err := w.EnsureBridge(); err != nil {
+		return ""
+	}
+	if !w.pingBridge() {
+		return ""
+	}
+	return bridgeBaseURL + "/liveview.jpg"
+}
+
+// StartLiveView tells the DSLRBridge to start the camera's live view.
+func (w *WinCamera) StartLiveView() error {
+	if err := w.EnsureBridge(); err != nil {
+		return fmt.Errorf("DSLRBridge not available: %w", err)
+	}
+
+	resp, err := w.client.Get(bridgeBaseURL + "/liveview/start")
+	if err != nil {
+		return fmt.Errorf("start live view request failed: %w", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+
+	var result bridgeResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return fmt.Errorf("failed to parse live view response: %w", err)
+	}
+	if result.Status == "error" {
+		return fmt.Errorf("start live view failed: %s", result.Error)
+	}
+
+	// Give the camera a moment to initialize the live view stream
+	time.Sleep(800 * time.Millisecond)
+	return nil
+}
+
+// StopLiveView tells the DSLRBridge to stop the camera's live view.
+func (w *WinCamera) StopLiveView() error {
+	resp, err := w.client.Get(bridgeBaseURL + "/liveview/stop")
+	if err != nil {
+		return fmt.Errorf("stop live view request failed: %w", err)
+	}
+	io.ReadAll(resp.Body)
+	resp.Body.Close()
+	return nil
+}
+
+// ConnectCamera tells the DSLRBridge to scan and connect to cameras.
+func (w *WinCamera) ConnectCamera() error {
+	if err := w.EnsureBridge(); err != nil {
+		return err
+	}
+
+	resp, err := w.client.Get(bridgeBaseURL + "/connect")
+	if err != nil {
+		return fmt.Errorf("connect request failed: %w", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+
+	var result bridgeResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return fmt.Errorf("failed to parse connect response: %w", err)
+	}
+	if result.Status == "error" || result.Status == "no_camera" {
+		return fmt.Errorf("connect failed: %s", result.Error)
+	}
+
+	println("[DSLRBridge] Connected to camera:", result.Camera)
+	return nil
+}
+
+// DisconnectCamera tells the DSLRBridge to disconnect from the camera.
+func (w *WinCamera) DisconnectCamera() error {
+	resp, err := w.client.Get(bridgeBaseURL + "/disconnect")
+	if err != nil {
+		return fmt.Errorf("disconnect request failed: %w", err)
+	}
+	io.ReadAll(resp.Body)
+	resp.Body.Close()
+	return nil
+}
+
+// IsCameraConnected checks if a camera is connected via the bridge.
+func (w *WinCamera) IsCameraConnected() bool {
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get(bridgeBaseURL + "/ping")
+	if err != nil {
+		return false
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+
+	var result struct {
+		Connected bool `json:"connected"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return false
+	}
+	return result.Connected
+}
+
+// copyFile copies src to dst, retrying if the source is still locked.
 func (w *WinCamera) copyFile(src, dst string) error {
 	var in *os.File
 	var err error
-	// Retry up to 10 times (5 seconds) in case DCC still has the file open
+	// Retry up to 10 times (5 seconds) in case the file is still being written
 	for i := 0; i < 10; i++ {
 		in, err = os.Open(src)
 		if err == nil {
 			break
 		}
-		println("[DCC] File still locked, retrying in 500ms...", err.Error())
+		println("[DSLRBridge] File still locked, retrying in 500ms...", err.Error())
 		time.Sleep(500 * time.Millisecond)
 	}
 	if err != nil {
@@ -158,130 +333,6 @@ func (w *WinCamera) copyFile(src, dst string) error {
 	defer out.Close()
 
 	n, err := io.Copy(out, in)
-	println("[DCC] Bytes copied:", n)
+	println("[DSLRBridge] Bytes copied:", n)
 	return err
-}
-
-// getFileCount returns the number of files in dcc's current session.
-// An empty body (EOF) is treated as 0 files rather than an error.
-func (w *WinCamera) getFileCount() (int, error) {
-	resp, err := w.client.Get(dccBaseURL + "/filelist.json")
-	if err != nil {
-		return 0, err
-	}
-	body, err := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if err != nil {
-		return 0, err
-	}
-	// DCC returns an empty body when the session has no images yet — treat as 0
-	body = []byte(strings.TrimSpace(string(body)))
-	if len(body) == 0 || string(body) == "null" {
-		return 0, nil
-	}
-	var files []dccFileItem
-	if err := json.Unmarshal(body, &files); err != nil {
-		return 0, err
-	}
-	return len(files), nil
-}
-
-// dccFileItem represents an entry in dcc's /filelist.json response.
-type dccFileItem struct {
-	FileName   string `json:"FileName"`
-	Original   string `json:"Original"`
-	LargeThumb string `json:"LargeThumb"`
-	Name       string `json:"Name"`
-}
-
-// downloadLastCapture fetches the file list from dcc and downloads the most recent image.
-func (w *WinCamera) downloadLastCapture(filename string) error {
-	// Get the file list from dcc
-	listResp, err := w.client.Get(dccBaseURL + "/filelist.json")
-	if err != nil {
-		return fmt.Errorf("failed to get file list from digiCamControl: %w", err)
-	}
-	defer listResp.Body.Close()
-
-	var files []dccFileItem
-	if err := json.NewDecoder(listResp.Body).Decode(&files); err != nil {
-		return fmt.Errorf("failed to parse file list: %w", err)
-	}
-
-	if len(files) == 0 {
-		return fmt.Errorf("no images found in digiCamControl session")
-	}
-
-	// Get the last (most recent) image
-	lastFile := files[len(files)-1]
-	println("[DCC] Downloading:", dccBaseURL+lastFile.Original)
-
-	// Download the original image via /image/ endpoint
-	imgResp, err := w.client.Get(dccBaseURL + lastFile.Original)
-	if err != nil {
-		return fmt.Errorf("failed to download capture: %w", err)
-	}
-	defer imgResp.Body.Close()
-	println("[DCC] Download status:", imgResp.StatusCode)
-
-	out, err := os.Create(filename)
-	if err != nil {
-		return fmt.Errorf("failed to create output file: %w", err)
-	}
-	defer out.Close()
-
-	n, err := io.Copy(out, imgResp.Body)
-	println("[DCC] Bytes written:", n)
-	if err != nil {
-		return fmt.Errorf("failed to write capture data: %w", err)
-	}
-
-	return nil
-}
-
-// LiveViewURL returns the digiCamControl live view JPEG endpoint.
-// It first pings the server to ensure it is running.
-func (w *WinCamera) LiveViewURL() string {
-	client := &http.Client{Timeout: 500 * time.Millisecond}
-	resp, err := client.Get(dccBaseURL)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		if resp != nil {
-			resp.Body.Close()
-		}
-		return "" // Return empty to trigger WebRTC fallback in frontend
-	}
-	resp.Body.Close()
-	return dccBaseURL + "/liveviewwebcam.jpg?width=480"
-}
-
-// StartLiveView tells digiCamControl to open its Live View window,
-// then waits briefly for the JPEG stream to become available.
-func (w *WinCamera) StartLiveView() error {
-	resp, err := w.client.Get(dccBaseURL + "/?CMD=LiveViewWnd_Show")
-	if err != nil {
-		return fmt.Errorf("digiCamControl StartLiveView request failed: %w", err)
-	}
-	io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("digiCamControl StartLiveView failed (HTTP %d)", resp.StatusCode)
-	}
-	// Give DCC ~1.2 s to spin up the live view feed before the frontend starts polling
-	time.Sleep(1200 * time.Millisecond)
-	return nil
-}
-
-// StopLiveView tells digiCamControl to close its Live View window,
-// returning the camera to normal standby (prevents sensor overheating).
-func (w *WinCamera) StopLiveView() error {
-	resp, err := w.client.Get(dccBaseURL + "/?CMD=LiveViewWnd_Hide")
-	if err != nil {
-		return fmt.Errorf("digiCamControl StopLiveView request failed: %w", err)
-	}
-	io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("digiCamControl StopLiveView failed (HTTP %d)", resp.StatusCode)
-	}
-	return nil
 }

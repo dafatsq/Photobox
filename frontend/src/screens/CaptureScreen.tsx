@@ -248,7 +248,7 @@ const CaptureScreen: React.FC = () => {
 
     // Review Countdown
     useEffect(() => {
-        if (!reviewMode) return;
+        if (!reviewMode || !sessionStarted) return;
         if (reviewTimeLeft <= 0) {
             if (pollingRef.current) clearInterval(pollingRef.current);
             if (liveViewActiveRef.current) {
@@ -263,7 +263,7 @@ const CaptureScreen: React.FC = () => {
             setReviewTimeLeft((prev) => prev - 1);
         }, 1000);
         return () => clearTimeout(timer);
-    }, [reviewMode, reviewTimeLeft, goToProcessing]);
+    }, [reviewMode, reviewTimeLeft, goToProcessing, sessionStarted]);
 
     // Dimensions setup for percentage mapping
     const baseWidth = selectedTemplate === 'strip_2x6' ? 600 : 1200;
@@ -424,7 +424,12 @@ const CaptureScreen: React.FC = () => {
                         <button
                             className="capture-start-btn"
                             disabled={!ready || !selectedFrame}
-                            onClick={() => setSessionStarted(true)}
+                            onClick={() => {
+                                setSessionStarted(true);
+                                if (currentSequence >= totalShots) {
+                                    setReviewTimeLeft(15);
+                                }
+                            }}
                         >
                             {!selectedFrame ? 'Select a Frame...' : ready ? 'Start Session! 📸' : 'Warming up camera...'}
                         </button>

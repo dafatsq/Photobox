@@ -89,7 +89,13 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
 
   goToTemplate: () =>
-    set({ currentState: 'template' }),
+    set({
+      currentState: 'template',
+      capturedImages: [],
+      capturedB64s: [],
+      capturedMirrored: [],
+      currentSequence: 0
+    }),
 
   selectTemplate: (template: TemplateType) =>
     set({

@@ -141,7 +141,7 @@ h1 span{color:#e2e8f0}
     <div class="drop-zone" id="dz1">
       <h3>Photostrip (2x6)</h3>
       <p>Drag PNG here<br>Required size: 600×1800 px</p>
-      <input type="file" accept=".png" onchange="handleUpload(this, 'strip_2x6')">
+      <input type="file" accept=".png" onchange="handleUpload(this, '4strip_2x6')">
       <div class="progress-bar" id="pb1"></div>
     </div>
 
@@ -149,7 +149,7 @@ h1 span{color:#e2e8f0}
     <div class="drop-zone" id="dz2">
       <h3>Postcard (4x6)</h3>
       <p>Drag PNG here<br>Required size: 1200×1800 px</p>
-      <input type="file" accept=".png" onchange="handleUpload(this, 'postcard_4x6')">
+      <input type="file" accept=".png" onchange="handleUpload(this, '4postcard_4x6')">
       <div class="progress-bar" id="pb2"></div>
     </div>
 
@@ -312,7 +312,7 @@ async function handleUpload(input, template) {
   }
 
   // Get progress bar element
-  const pbId = template === 'strip_2x6' ? 'pb1' : 'pb2';
+  const pbId = template === '4strip_2x6' ? 'pb1' : 'pb2';
   const pb = document.getElementById(pbId);
   pb.style.width = '50%';
 
@@ -391,7 +391,7 @@ function openEditor(id) {
   
   // Real dimensions
   let w = 600, h = 1800;
-  if (f.template === 'postcard_4x6') { w = 1200; h = 1800; }
+  if (f.template === '4postcard_4x6') { w = 1200; h = 1800; }
   
   canvas.style.width = w + 'px';
   canvas.style.height = h + 'px';
@@ -454,9 +454,9 @@ function resetLayout(idx) {
   const f = config.frames.find(x => x.id === activeFrameId);
   if (!f) return;
   
-  if (f.template === 'strip_2x6') {
+  if (f.template === '4strip_2x6') {
     activeLayouts[idx] = { x: 0, y: idx * 400, width: 600, height: 400 };
-  } else if (f.template === 'postcard_4x6') {
+  } else if (f.template === '4postcard_4x6') {
     const col = idx % 2;
     const row = Math.floor(idx / 2);
     // matches the 540x360 logic with 40px offsets
@@ -779,7 +779,7 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 			return
 		}
 
-		template := r.FormValue("template") // "strip_2x6" or "postcard_4x6"
+		template := r.FormValue("template") // "4strip_2x6" or "4postcard_4x6"
 		label := r.FormValue("label")
 		if label == "" {
 			label = handler.Filename
@@ -815,7 +815,7 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 
 		// Provide default layouts based on template so user has a starting point
 		var layouts []PhotoLayout
-		if template == "strip_2x6" {
+		if template == "4strip_2x6" {
 			// 600x1800, stack of 4. A 600 width in 3:2 needs 400 height.
 			// 4 * 400 = 1600. Leaving 200px of empty space at the bottom.
 			layouts = []PhotoLayout{
@@ -824,7 +824,7 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 				{X: 0, Y: 800, Width: 600, Height: 400},
 				{X: 0, Y: 1200, Width: 600, Height: 400},
 			}
-		} else if template == "postcard_4x6" {
+		} else if template == "4postcard_4x6" {
 			// 1200x1800. Needs 4 boxes in 3:2 ratio.
 			// If we put two side-by-side, width = 540 each (leaves margins), height = 360.
 			layouts = []PhotoLayout{

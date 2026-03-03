@@ -10,7 +10,7 @@ export type AppState =
   | 'done'
   | 'error';
 
-export type TemplateType = 'strip_2x6' | 'postcard_4x6';
+export type TemplateType = '4strip_2x6' | '4postcard_4x6';
 
 interface AppStore {
   // Current state in the flow
@@ -53,14 +53,17 @@ function generateSessionId(): string {
 }
 
 function getShotCount(template: TemplateType): number {
-  switch (template) {
-    case 'strip_2x6':
-      return 4;
-    case 'postcard_4x6':
-      return 4;
-    default:
-      return 4;
+  if (!template || template.length === 0) return 4;
+
+  // Extract the first character and parse it as integer
+  const firstChar = template.charAt(0);
+  const count = parseInt(firstChar, 10);
+
+  if (isNaN(count) || count <= 0) {
+    return 4; // fallback default
   }
+
+  return count;
 }
 
 export const useAppStore = create<AppStore>((set) => ({

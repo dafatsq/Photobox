@@ -71,25 +71,25 @@
     gap: 3px;
 }
 
-.template-preview-layout.strip_2x6 {
+.template-preview-layout.\34 strip_2x6 {
     flex-direction: column;
     width: 50px;
 }
 
-.template-preview-layout.strip_2x6 .preview-cell {
+.template-preview-layout.\34 strip_2x6 .preview-cell {
     width: 50px;
     height: 28px;
     background: rgba(139, 92, 246, 0.3);
     border-radius: 3px;
 }
 
-.template-preview-layout.postcard_4x6 {
+.template-preview-layout.\34 postcard_4x6 {
     display: grid;
     grid-template-columns: 1fr 1fr;
     width: 90px;
 }
 
-.template-preview-layout.postcard_4x6 .preview-cell {
+.template-preview-layout.\34 postcard_4x6 .preview-cell {
     width: 42px;
     height: 32px;
     background: rgba(139, 92, 246, 0.3);

@@ -192,7 +192,7 @@ func flipHorizontal(img image.Image) image.Image {
 }
 
 // ProcessComposite combines captured images into a composite frame based on templateID and frameID.
-// Supported templates: "strip_2x6" (4 photos in a vertical strip), "postcard_4x6" (4 photos in a grid).
+// Supported templates: "4strip_2x6" (4 photos in a vertical strip), "4postcard_4x6" (4 photos in a grid).
 func (a *App) ProcessComposite(images []string, mirrored []bool, templateID string, frameID string) (string, error) {
 	if len(images) == 0 {
 		return "", fmt.Errorf("no images provided")
@@ -274,9 +274,9 @@ func (a *App) ProcessComposite(images []string, mirrored []bool, templateID stri
 	// Determine composite resolution based on template
 	var compW, compH int
 	switch templateID {
-	case "strip_2x6":
+	case "4strip_2x6":
 		compW, compH = 600, 1800
-	case "postcard_4x6":
+	case "4postcard_4x6":
 		compW, compH = 1200, 1800
 	default:
 		return "", fmt.Errorf("unknown template: %s", templateID)
@@ -298,7 +298,7 @@ func (a *App) ProcessComposite(images []string, mirrored []bool, templateID stri
 	} else {
 		// Fallback to rigid mathematical grid if no custom layouts exist
 		switch templateID {
-		case "strip_2x6":
+		case "4strip_2x6":
 			photoW := 600
 			photoH := 1800 / len(srcImages)
 			for i, src := range srcImages {
@@ -307,7 +307,7 @@ func (a *App) ProcessComposite(images []string, mirrored []bool, templateID stri
 				xdraw.CatmullRom.Scale(composite, destRect, src, cropRect, draw.Src, nil)
 			}
 
-		case "postcard_4x6":
+		case "4postcard_4x6":
 			photoW := 600
 			photoH := 900
 			for i, src := range srcImages {

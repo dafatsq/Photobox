@@ -282,13 +282,13 @@ const CaptureScreen: React.FC = () => {
     }, [reviewMode, reviewTimeLeft, goToProcessing, sessionStarted]);
 
     // Dimensions setup for percentage mapping
-    const baseWidth = selectedTemplate === 'strip_2x6' ? 600 : 1200;
+    const baseWidth = selectedTemplate === '4strip_2x6' ? 600 : 1200;
     const baseHeight = 1800;
 
     // We scale the display workspace based on window height so it fits on screen
     const workspaceHeightMap = {
-        'strip_2x6': '80vh',
-        'postcard_4x6': '70vh'
+        '4strip_2x6': '80vh',
+        '4postcard_4x6': '70vh'
     };
     const workspaceHeight = selectedTemplate ? workspaceHeightMap[selectedTemplate] : '80vh';
     const workspaceAspect = `${baseWidth} / ${baseHeight}`;

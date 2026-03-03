@@ -4,13 +4,13 @@ import './TemplateScreen.css';
 
 const templates: { id: TemplateType; label: string; description: string; layout: string }[] = [
     {
-        id: 'strip_2x6',
+        id: '4strip_2x6',
         label: 'Photo Strip',
         description: '4 photos in a classic vertical strip',
         layout: '2×6"',
     },
     {
-        id: 'postcard_4x6',
+        id: '4postcard_4x6',
         label: 'Postcard',
         description: '4 photos in a beautiful grid',
         layout: '4×6"',
@@ -60,7 +60,7 @@ const TemplateScreen: React.FC = () => {
                     >
                         <div className="template-card-preview">
                             <div className={`template-preview-layout ${t.id}`}>
-                                {t.id === 'strip_2x6' ? (
+                                {t.id === '4strip_2x6' ? (
                                     <>
                                         <div className="preview-cell" />
                                         <div className="preview-cell" />

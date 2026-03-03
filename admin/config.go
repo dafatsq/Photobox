@@ -126,6 +126,15 @@ func (c *AdminConfig) Load() error {
 	c.webcamID = state.WebcamID
 	c.fullscreen = state.Fullscreen
 
+	// Migrate old template names
+	for i := range c.frames {
+		if c.frames[i].Template == "strip_2x6" {
+			c.frames[i].Template = "4strip_2x6"
+		} else if c.frames[i].Template == "postcard_4x6" {
+			c.frames[i].Template = "4postcard_4x6"
+		}
+	}
+
 	log.Printf("[Admin Config] Loaded %d frames from %s", len(c.frames), c.ConfigFilePath())
 	return nil
 }

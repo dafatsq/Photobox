@@ -172,12 +172,28 @@ const CaptureScreen: React.FC = () => {
                 if (!domVideo) throw new Error('Video element missing');
 
                 const canvas = document.createElement('canvas');
-                canvas.width = domVideo.videoWidth || 1920;
-                canvas.height = domVideo.videoHeight || 1080;
+                const videoA = domVideo.videoWidth / domVideo.videoHeight;
+                const targetA = 3 / 2;
+
+                let drawX = 0, drawY = 0, drawW = domVideo.videoWidth, drawH = domVideo.videoHeight;
+
+                if (videoA > targetA) {
+                    // Video is wider than 3:2, crop the width
+                    drawW = domVideo.videoHeight * targetA;
+                    drawX = (domVideo.videoWidth - drawW) / 2;
+                } else {
+                    // Video is taller than 3:2, crop the height
+                    drawH = domVideo.videoWidth / targetA;
+                    drawY = (domVideo.videoHeight - drawH) / 2;
+                }
+
+                canvas.width = drawW;
+                canvas.height = drawH;
+
                 const ctx = canvas.getContext('2d');
                 if (!ctx) throw new Error('No 2d context');
 
-                ctx.drawImage(domVideo, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(domVideo, drawX, drawY, drawW, drawH, 0, 0, drawW, drawH);
                 const b64 = canvas.toDataURL('image/jpeg', 0.9);
 
                 setFrozenImage(b64);

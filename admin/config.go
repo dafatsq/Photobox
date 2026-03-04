@@ -15,6 +15,7 @@ type persistedState struct {
 	CameraType    string  `json:"cameraType"` // "dslr" or "webcam"
 	WebcamID      string  `json:"webcamId"`
 	Fullscreen    bool    `json:"fullscreen"`
+	DSLRMode      string  `json:"dslrMode"` // "integrated" or "legacy"
 }
 
 // PhotoLayout defines the exact coordinates and size for a single photo in the composite.
@@ -49,6 +50,7 @@ type AdminConfig struct {
 	cameraType         string
 	webcamID           string
 	fullscreen         bool
+	dslrMode           string // "integrated" (DSLRBridge) or "legacy" (DCC app)
 	availableCameras   []CameraDevice
 	onFullscreenChange func(bool)
 }
@@ -62,6 +64,7 @@ func NewAdminConfig(framesDir string) *AdminConfig {
 		cameraType:       "dslr",
 		webcamID:         "",
 		fullscreen:       false,
+		dslrMode:         "integrated",
 		availableCameras: []CameraDevice{},
 	}
 
@@ -87,6 +90,7 @@ func (c *AdminConfig) Save() error {
 		CameraType:    c.cameraType,
 		WebcamID:      c.webcamID,
 		Fullscreen:    c.fullscreen,
+		DSLRMode:      c.dslrMode,
 	}
 	copy(state.Frames, c.frames)
 
@@ -125,6 +129,10 @@ func (c *AdminConfig) Load() error {
 	}
 	c.webcamID = state.WebcamID
 	c.fullscreen = state.Fullscreen
+	c.dslrMode = state.DSLRMode
+	if c.dslrMode == "" {
+		c.dslrMode = "integrated"
+	}
 
 	// Migrate old template names
 	for i := range c.frames {
@@ -164,6 +172,21 @@ func (c *AdminConfig) GetCameraType() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.cameraType
+}
+
+func (c *AdminConfig) GetDSLRMode() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.dslrMode
+}
+
+func (c *AdminConfig) SetDSLRMode(val string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.dslrMode = val
+	if err := c.Save(); err != nil {
+		log.Printf("[Admin Config] Failed to save after setting dslrMode: %v", err)
+	}
 }
 
 func (c *AdminConfig) SetCameraType(val string) {

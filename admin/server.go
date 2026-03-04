@@ -125,6 +125,15 @@ h1 span{color:#e2e8f0}
       <option value="webcam">Webcam (Browser)</option>
     </select>
   </div>
+  <div class="toggle-row" id="dslrModeRow" style="margin-top:0.5rem">
+    <label>DSLR Driver
+      <span style="font-size:.75rem;color:#64748b;margin-left:.5rem">Requires app restart to take effect</span>
+    </label>
+    <select id="dslrModeSelect" style="background:#0f172a; color:#e2e8f0; border:1px solid #334155; padding:0.5rem; border-radius:4px" onchange="updateCameraSettings()">
+      <option value="integrated">Integrated (DSLRBridge — no DCC needed)</option>
+      <option value="legacy">Legacy (DigiCamControl app must be running)</option>
+    </select>
+  </div>
   <div class="toggle-row" id="webcamRow" style="margin-top:0.5rem; display:none;">
     <label>Webcam Device</label>
     <select id="webcamSelect" style="background:#0f172a; color:#e2e8f0; border:1px solid #334155; padding:0.5rem; border-radius:4px" onchange="updateCameraSettings()">
@@ -201,13 +210,14 @@ async function load() {
 async function updateCameraSettings() {
   config.cameraType = document.getElementById('cameraTypeSelect').value;
   config.webcamId = document.getElementById('webcamSelect').value;
+  config.dslrMode = document.getElementById('dslrModeSelect').value;
   await fetch('/api/config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ bypassPayment: config.bypassPayment, cameraType: config.cameraType, webcamId: config.webcamId, fullscreen: config.fullscreen })
+    body: JSON.stringify({ bypassPayment: config.bypassPayment, cameraType: config.cameraType, webcamId: config.webcamId, fullscreen: config.fullscreen, dslrMode: config.dslrMode })
   });
   render();
-  flash('Camera settings saved');
+  flash('Camera settings saved — restart app to apply DSLR driver change');
 }
 
 function render() {
@@ -233,6 +243,11 @@ function render() {
 
   const cType = document.getElementById('cameraTypeSelect');
   cType.value = config.cameraType || 'dslr';
+  
+  const dslrModeRow = document.getElementById('dslrModeRow');
+  const dslrModeSel = document.getElementById('dslrModeSelect');
+  dslrModeRow.style.display = config.cameraType === 'dslr' ? 'flex' : 'none';
+  dslrModeSel.value = config.dslrMode || 'integrated';
   
   const wRow = document.getElementById('webcamRow');
   const wSel = document.getElementById('webcamSelect');
@@ -285,7 +300,7 @@ async function toggleFullscreen() {
   await fetch('/api/config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ bypassPayment: config.bypassPayment, cameraType: config.cameraType, webcamId: config.webcamId, fullscreen: config.fullscreen })
+    body: JSON.stringify({ bypassPayment: config.bypassPayment, cameraType: config.cameraType, webcamId: config.webcamId, fullscreen: config.fullscreen, dslrMode: config.dslrMode })
   });
   render();
   flash('Fullscreen ' + (config.fullscreen ? 'enabled' : 'disabled'));
@@ -296,7 +311,7 @@ async function toggleBypass() {
   await fetch('/api/config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ bypassPayment: config.bypassPayment, cameraType: config.cameraType, webcamId: config.webcamId })
+    body: JSON.stringify({ bypassPayment: config.bypassPayment, cameraType: config.cameraType, webcamId: config.webcamId, dslrMode: config.dslrMode })
   });
   render();
   flash('Payment bypass ' + (config.bypassPayment ? 'enabled' : 'disabled'));
@@ -668,6 +683,7 @@ type configResponse struct {
 	CameraType       string         `json:"cameraType"`
 	WebcamID         string         `json:"webcamId"`
 	Fullscreen       bool           `json:"fullscreen"`
+	DSLRMode         string         `json:"dslrMode"`
 	AvailableCameras []CameraDevice `json:"availableCameras"`
 }
 
@@ -677,6 +693,7 @@ type configUpdateRequest struct {
 	CameraType    string `json:"cameraType"`
 	WebcamID      string `json:"webcamId"`
 	Fullscreen    bool   `json:"fullscreen"`
+	DSLRMode      string `json:"dslrMode"`
 }
 
 // StartAdminServer launches the admin HTTP server on the given port.
@@ -729,6 +746,7 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 				CameraType:       cfg.GetCameraType(),
 				WebcamID:         cfg.GetWebcamID(),
 				Fullscreen:       cfg.GetFullscreen(),
+				DSLRMode:         cfg.GetDSLRMode(),
 				AvailableCameras: cfg.GetAvailableCameras(),
 			}
 			w.Header().Set("Content-Type", "application/json")
@@ -746,6 +764,9 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 			}
 			cfg.SetWebcamID(body.WebcamID)
 			cfg.SetFullscreen(body.Fullscreen)
+			if body.DSLRMode == "legacy" || body.DSLRMode == "integrated" {
+				cfg.SetDSLRMode(body.DSLRMode)
+			}
 			w.WriteHeader(http.StatusOK)
 
 		default:

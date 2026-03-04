@@ -295,23 +295,39 @@ func (w *WinCamera) DisconnectCamera() error {
 	return nil
 }
 
-// IsCameraConnected checks if a camera is connected via the bridge.
+// IsCameraConnected ensures the bridge is running, then checks if a camera
+// is detected. Retries for up to ~8 seconds to allow the bridge's camera
+// scan to complete before reporting failure.
 func (w *WinCamera) IsCameraConnected() bool {
-	client := &http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Get(bridgeBaseURL + "/ping")
-	if err != nil {
+	// Start the bridge if not already running — must happen before checking camera status
+	if err := w.EnsureBridge(); err != nil {
+		println("[DSLRBridge] IsCameraConnected: bridge not available:", err.Error())
 		return false
 	}
-	body, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
 
-	var result struct {
-		Connected bool `json:"connected"`
+	client := &http.Client{Timeout: 2 * time.Second}
+	maxAttempts := 8
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		resp, err := client.Get(bridgeBaseURL + "/ping")
+		if err == nil {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			var result struct {
+				Connected bool `json:"connected"`
+			}
+			if err := json.Unmarshal(body, &result); err == nil && result.Connected {
+				println("[DSLRBridge] Camera connected (attempt", attempt, ")")
+				return true
+			}
+		}
+		if attempt < maxAttempts {
+			println("[DSLRBridge] Camera not ready yet, retrying...", attempt, "/", maxAttempts)
+			time.Sleep(800 * time.Millisecond)
+		}
 	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return false
-	}
-	return result.Connected
+	println("[DSLRBridge] Camera not detected after all retries")
+	return false
 }
 
 // copyFile copies src to dst, retrying if the source is still locked.

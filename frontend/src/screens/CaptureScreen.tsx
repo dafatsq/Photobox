@@ -94,18 +94,22 @@ const CaptureScreen: React.FC = () => {
                         if (!cancelled) goToError('Webcam failed to start.');
                     }
                 } else {
-                    // Start Camera Live View (DSLR)
-                    await StartLiveView();
+                    // DSLR mode: start live view (fire-and-forget) and get the URL
+                    // The bridge now has a proper message pump so this won't block
+                    StartLiveView()
+                        .then(() => { liveViewActiveRef.current = true; })
+                        .catch((err) => console.warn('[CaptureScreen] StartLiveView error (non-fatal):', err));
                     const url = await GetLiveViewURL();
                     if (!cancelled && url) {
                         liveViewActiveRef.current = true;
                         setLiveViewURL(url);
                         setReady(true);
                     } else if (!cancelled) {
-                        goToError('DigiCamControl not detected. Interactive layout requires main camera.');
+                        goToError('DSLR camera not detected. Please check the camera connection.');
                     }
                 }
             } catch (err) {
+                console.error('[CaptureScreen] Init error:', err);
                 if (!cancelled) goToError('Camera initialization failed.');
             }
         };

@@ -206,35 +206,41 @@ func (w *WinCamera) Capture(filename string) error {
 }
 
 // LiveViewURL returns the DSLRBridge live view JPEG endpoint.
+// Always returns the URL if the bridge is running (the endpoint self-handles errors).
 func (w *WinCamera) LiveViewURL() string {
 	if err := w.EnsureBridge(); err != nil {
-		return ""
-	}
-	if !w.pingBridge() {
 		return ""
 	}
 	return bridgeBaseURL + "/liveview.jpg"
 }
 
 // StartLiveView tells the DSLRBridge to start the camera's live view.
+// Errors are logged but not returned — live view is optional for DSLR capture.
 func (w *WinCamera) StartLiveView() error {
 	if err := w.EnsureBridge(); err != nil {
-		return fmt.Errorf("DSLRBridge not available: %w", err)
+		println("[DSLRBridge] StartLiveView: bridge not available:", err.Error())
+		return nil // Don't fail hard — camera can still capture without live view
 	}
 
-	resp, err := w.client.Get(bridgeBaseURL + "/liveview/start")
+	// Use a short timeout — StartLiveView can block on older cameras
+	lvClient := &http.Client{Timeout: 5 * time.Second}
+	resp, err := lvClient.Get(bridgeBaseURL + "/liveview/start")
 	if err != nil {
-		return fmt.Errorf("start live view request failed: %w", err)
+		println("[DSLRBridge] StartLiveView: request failed:", err.Error())
+		return nil // Best-effort
 	}
 	body, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 
 	var result bridgeResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		return fmt.Errorf("failed to parse live view response: %w", err)
+		println("[DSLRBridge] StartLiveView: parse error:", err.Error())
+		return nil
 	}
 	if result.Status == "error" {
-		return fmt.Errorf("start live view failed: %s", result.Error)
+		println("[DSLRBridge] StartLiveView: bridge returned error:", result.Error)
+		// Don't return error — live view is optional
+		return nil
 	}
 
 	// Give the camera a moment to initialize the live view stream

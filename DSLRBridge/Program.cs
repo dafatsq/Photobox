@@ -6,6 +6,7 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using CameraControl.Devices;
@@ -29,8 +30,41 @@ namespace DSLRBridge
         private static volatile bool _running = true;
         private static System.Timers.Timer _keepAliveTimer;
 
+        // STA thread dispatch: camera operations must run on the main STA thread
+        // because Canon EDSDK requires it for proper event handling
+        private static readonly BlockingCollection<Action> _staQueue = new BlockingCollection<Action>();
+        private static Thread _staThread;
+
         private const int DEFAULT_PORT = 5513;
         private const string LOG_PREFIX = "[DSLRBridge]";
+
+        // Win32 message pump imports
+        [DllImport("user32.dll")]
+        private static extern bool PeekMessage(out MSG msg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax, uint wRemoveMsg);
+        [DllImport("user32.dll")]
+        private static extern bool TranslateMessage(ref MSG msg);
+        [DllImport("user32.dll")]
+        private static extern IntPtr DispatchMessage(ref MSG msg);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MSG
+        {
+            public IntPtr hwnd;
+            public uint message;
+            public IntPtr wParam;
+            public IntPtr lParam;
+            public uint time;
+            public POINT pt;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT
+        {
+            public int x;
+            public int y;
+        }
+
+        private const uint PM_REMOVE = 0x0001;
 
         [STAThread]
         static void Main(string[] args)
@@ -102,7 +136,8 @@ namespace DSLRBridge
             // Start HTTP server
             StartHttpServer(port);
 
-            // Keep running until shutdown
+            // Keep running with a proper Windows message pump
+            // Canon EDSDK requires message pump on the STA thread for event processing
             Log("DSLRBridge running. Press Ctrl+C or send /shutdown to exit.");
             Console.CancelKeyPress += (s, e) =>
             {
@@ -110,12 +145,85 @@ namespace DSLRBridge
                 _running = false;
             };
 
+            // Main message pump loop — processes Windows messages AND our STA dispatch queue
             while (_running)
             {
-                Thread.Sleep(100);
+                // 1. Process any pending Windows messages (required for Canon EDSDK)
+                MSG msg;
+                while (PeekMessage(out msg, IntPtr.Zero, 0, 0, PM_REMOVE))
+                {
+                    TranslateMessage(ref msg);
+                    DispatchMessage(ref msg);
+                }
+
+                // 2. Process any queued camera operations (from HTTP handler threads)
+                Action action;
+                while (_staQueue.TryTake(out action, 0))
+                {
+                    try
+                    {
+                        action();
+                    }
+                    catch (Exception ex)
+                    {
+                        Log("STA dispatch error: " + ex.Message);
+                    }
+                }
+
+                // Small sleep to prevent busy-waiting, but short enough for responsive message processing
+                Thread.Sleep(10);
             }
 
             Shutdown();
+        }
+
+        /// <summary>
+        /// Run an action on the main STA thread (required for Canon EDSDK operations).
+        /// Blocks the calling thread until the action completes.
+        /// </summary>
+        private static T RunOnSTA<T>(Func<T> func, int timeoutMs = 10000)
+        {
+            // If already on the STA thread, run directly
+            if (Thread.CurrentThread.GetApartmentState() == ApartmentState.STA &&
+                Thread.CurrentThread.ManagedThreadId == 1) // Main thread
+            {
+                return func();
+            }
+
+            T result = default(T);
+            Exception error = null;
+            var done = new ManualResetEventSlim(false);
+
+            _staQueue.Add(() =>
+            {
+                try
+                {
+                    result = func();
+                }
+                catch (Exception ex)
+                {
+                    error = ex;
+                }
+                finally
+                {
+                    done.Set();
+                }
+            });
+
+            if (!done.Wait(timeoutMs))
+            {
+                throw new TimeoutException("STA dispatch timed out after " + timeoutMs + "ms");
+            }
+
+            if (error != null)
+                throw error;
+
+            return result;
+        }
+
+        private static void RunOnSTA(Action action, int timeoutMs = 10000)
+        {
+            RunOnSTA<object>(() => { action(); return null; }, timeoutMs);
         }
 
         private static void StartHttpServer(int port)
@@ -354,7 +462,7 @@ namespace DSLRBridge
         {
             try
             {
-                _deviceManager.ConnectToCamera();
+                RunOnSTA(() => _deviceManager.ConnectToCamera());
                 Thread.Sleep(1500);
 
                 if (_deviceManager.ConnectedDevices.Count > 0)
@@ -393,7 +501,8 @@ namespace DSLRBridge
                 {
                     cam.IsBusy = true;
                     Log("Triggering capture...");
-                    cam.CapturePhoto();
+                    // Dispatch CapturePhoto to main STA thread for Canon EDSDK compatibility
+                    RunOnSTA(() => cam.CapturePhoto(), 15000);
                 }
                 catch (Exception ex)
                 {
@@ -431,15 +540,32 @@ namespace DSLRBridge
 
             try
             {
-                cam.StartLiveView();
+                // Dispatch StartLiveView to main STA thread (Canon EDSDK requires this)
+                Log("Starting live view via STA dispatch...");
                 _liveViewActive = true;
+
+                try
+                {
+                    RunOnSTA(() => cam.StartLiveView(), 5000);
+                    Log("Live view started on camera");
+                }
+                catch (TimeoutException)
+                {
+                    Log("Live view start timed out (will retry via poll loop)");
+                    // Don't fail — the poll loop will keep trying
+                }
+                catch (Exception ex)
+                {
+                    Log("Live view start error: " + ex.Message);
+                    // Don't fail — try polling anyway
+                }
 
                 // Start live view polling thread
                 _liveViewThread = new Thread(LiveViewPollLoop);
                 _liveViewThread.IsBackground = true;
                 _liveViewThread.Start();
 
-                Thread.Sleep(500); // Give it time to start
+                Thread.Sleep(500); // Give it time to get first frame
                 Log("Live view started");
                 return "{\"status\":\"ok\"}";
             }
@@ -458,7 +584,9 @@ namespace DSLRBridge
             try
             {
                 if (cam != null)
-                    cam.StopLiveView();
+                {
+                    RunOnSTA(() => cam.StopLiveView(), 3000);
+                }
                 Log("Live view stopped");
             }
             catch (Exception ex)
@@ -480,6 +608,7 @@ namespace DSLRBridge
         private static void LiveViewPollLoop()
         {
             Log("Live view poll thread started");
+            bool gotFirstFrame = false;
             while (_liveViewActive && _running)
             {
                 try
@@ -491,9 +620,26 @@ namespace DSLRBridge
                         continue;
                     }
 
-                    LiveViewData lvData = cam.GetLiveViewImage();
+                    // GetLiveViewImage needs to run on the STA thread for Canon
+                    LiveViewData lvData = null;
+                    try
+                    {
+                        lvData = RunOnSTA(() => cam.GetLiveViewImage(), 3000);
+                    }
+                    catch (TimeoutException)
+                    {
+                        // STA thread might be busy, skip this frame
+                        Thread.Sleep(50);
+                        continue;
+                    }
+
                     if (lvData != null && lvData.ImageData != null && lvData.ImageData.Length > 0)
                     {
+                        if (!gotFirstFrame)
+                        {
+                            Log("Live view: got first frame (" + lvData.ImageData.Length + " bytes)");
+                            gotFirstFrame = true;
+                        }
                         lock (_lvLock)
                         {
                             _liveViewData = lvData.ImageData;
@@ -503,6 +649,7 @@ namespace DSLRBridge
                 catch (Exception ex)
                 {
                     // Live view can throw if camera is busy or transitioning
+                    Log("Live view poll error: " + ex.Message);
                     if (ex.Message.Contains("not connected") || ex.Message.Contains("disconnected"))
                     {
                         _liveViewActive = false;
@@ -510,7 +657,7 @@ namespace DSLRBridge
                     }
                 }
 
-                Thread.Sleep(33); // ~30fps
+                Thread.Sleep(50); // ~20fps (slightly slower to reduce STA contention)
             }
             Log("Live view poll thread ended");
         }
@@ -524,7 +671,7 @@ namespace DSLRBridge
             {
                 if (_deviceManager != null)
                 {
-                    _deviceManager.CloseAll();
+                    RunOnSTA(() => _deviceManager.CloseAll(), 5000);
                     Log("Camera disconnected");
                     return "{\"status\":\"disconnected\"}";
                 }
@@ -554,8 +701,7 @@ namespace DSLRBridge
                         var canonCam = cam as CameraControl.Devices.Canon.CanonSDKBase;
                         if (canonCam != null && canonCam.Camera != null)
                         {
-                            // CameraCommand_ExtendShutDownTimer = 0x00000001
-                            canonCam.Camera.SendCommand(0x00000001);
+                            RunOnSTA(() => canonCam.Camera.SendCommand(0x00000001), 2000);
                         }
                     }
                     catch { /* Canon-specific keep-alive is best-effort */ }

@@ -448,3 +448,15 @@ func (a *App) StopLiveView() error {
 func (a *App) GetLiveViewURL() string {
 	return a.camera.LiveViewURL()
 }
+
+// IsCameraConnected checks if the camera hardware is actively reporting a connection.
+func (a *App) IsCameraConnected() bool {
+	type connectionChecker interface {
+		IsCameraConnected() bool
+	}
+	if checker, ok := a.camera.(connectionChecker); ok {
+		return checker.IsCameraConnected()
+	}
+	// For webcams or stubs that don't implement explicit connection checking, assume true
+	return true
+}

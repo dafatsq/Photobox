@@ -19,6 +19,8 @@ export function GetLiveViewURL():Promise<string>;
 
 export function GetWebcamID():Promise<string>;
 
+export function IsCameraConnected():Promise<boolean>;
+
 export function IsPaymentBypassed():Promise<boolean>;
 
 export function PrintPhoto(arg1:string):Promise<void>;

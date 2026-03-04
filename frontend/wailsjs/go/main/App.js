@@ -34,6 +34,10 @@ export function GetWebcamID() {
   return window['go']['main']['App']['GetWebcamID']();
 }
 
+export function IsCameraConnected() {
+  return window['go']['main']['App']['IsCameraConnected']();
+}
+
 export function IsPaymentBypassed() {
   return window['go']['main']['App']['IsPaymentBypassed']();
 }

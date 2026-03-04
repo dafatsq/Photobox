@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../store/appStore';
-import { TriggerCapture, GetLiveViewURL, StartLiveView, StopLiveView, GetFrames, GetFrameConfig, GetImageBase64, GetCameraMode, GetWebcamID, SaveWebRTCImage } from '../../wailsjs/go/main/App';
+import { TriggerCapture, GetLiveViewURL, StartLiveView, StopLiveView, GetFrames, GetFrameConfig, GetImageBase64, GetCameraMode, GetWebcamID, SaveWebRTCImage, IsCameraConnected } from '../../wailsjs/go/main/App';
 import FlashOverlay from '../components/FlashOverlay';
 import './CaptureScreen.css';
 
@@ -94,18 +94,21 @@ const CaptureScreen: React.FC = () => {
                         if (!cancelled) goToError('Webcam failed to start.');
                     }
                 } else {
-                    // DSLR mode: start live view (fire-and-forget) and get the URL
-                    // The bridge now has a proper message pump so this won't block
-                    StartLiveView()
-                        .then(() => { liveViewActiveRef.current = true; })
-                        .catch((err) => console.warn('[CaptureScreen] StartLiveView error (non-fatal):', err));
-                    const url = await GetLiveViewURL();
-                    if (!cancelled && url) {
+                    // DSLR mode: Check if a camera is actually connected first
+                    const connected = await IsCameraConnected();
+
+                    if (!cancelled && connected) {
+                        // start live view (fire-and-forget)
+                        StartLiveView()
+                            .then(() => { liveViewActiveRef.current = true; })
+                            .catch((err) => console.warn('[CaptureScreen] StartLiveView error (non-fatal):', err));
+
+                        const url = await GetLiveViewURL();
                         liveViewActiveRef.current = true;
                         setLiveViewURL(url);
                         setReady(true);
                     } else if (!cancelled) {
-                        goToError('DSLR camera not detected. Please check the camera connection.');
+                        goToError('DSLR camera not detected. Please check the camera connection. Ensure camera is turned ON and plugged in.');
                     }
                 }
             } catch (err) {

@@ -17,155 +17,422 @@ const adminPage = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Photobox Admin</title>
+<title>Photobox Admin Workspace</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f172a;color:#e2e8f0;padding:2rem}
-h1{font-size:1.5rem;margin-bottom:2rem;color:#94a3b8}
-h1 span{color:#e2e8f0}
-.card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:1.5rem;margin-bottom:1.5rem}
-.card h2{font-size:1rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:1rem}
-.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;background:rgba(255,255,255,.04);border-radius:8px}
-.toggle-row label{cursor:pointer;display:flex;align-items:center;gap:.75rem;font-size:1rem}
-.switch{position:relative;width:48px;height:26px;background:#475569;border-radius:13px;transition:.2s;cursor:pointer}
-.switch.on{background:#22c55e}
-.switch::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s}
-.switch.on::after{transform:translateX(22px)}
-.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600}
-.badge.on{background:#22c55e33;color:#22c55e}
-.badge.off{background:#ef444433;color:#ef4444}
-.frames-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:1.5rem;margin-bottom:2rem}
-.frame-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:1rem;display:flex;flex-direction:column;gap:.75rem;transition:.2s}
-.frame-card:hover{transform:translateY(-4px);border-color:#6366f1;background:rgba(255,255,255,.05)}
-.frame-preview{height:300px;background:#000;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.1)}
-.frame-preview img{height:100%;width:auto;object-fit:contain;display:block}
-.frame-info{display:flex;flex-direction:column;gap:.25rem}
-.frame-info h4{font-size:.9rem;color:#e2e8f0;margin:0}
-.frame-info p{font-size:.75rem;color:#64748b;margin:0}
-.frame-actions{display:flex;gap:.5rem;margin-top:auto}
-.del-btn{background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.3);cursor:pointer;font-size:1.1rem;opacity:.8;padding:4px 12px;border-radius:6px;transition:.2s}
-.del-btn:hover{opacity:1;background:rgba(239,68,68,.2);border-color:#ef4444}
-.status{position:fixed;bottom:1rem;right:1rem;padding:.5rem 1rem;border-radius:8px;font-size:.85rem;background:#22c55e33;color:#22c55e;opacity:0;transition:opacity .3s;z-index:999}
-.status.show{opacity:1}
-.status.error{background:#ef444433;color:#ef4444}
+:root {
+  --bg-deep: #0a0a0f;
+  --bg-surface: #13141c;
+  --bg-card: rgba(255, 255, 255, 0.02);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.15);
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --accent: #0ea5e9;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --success: #10b981;
+  --danger: #ef4444;
+  --danger-bg: rgba(239, 68, 68, 0.1);
+  --radius-lg: 16px;
+  --radius-md: 10px;
+  --radius-sm: 6px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { 
+  font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+  background: var(--bg-deep); 
+  color: var(--text-main); 
+  line-height: 1.5;
+  min-height: 100vh;
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.05), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(14, 165, 233, 0.05), transparent 25%);
+  background-attachment: fixed;
+}
+
+/* Page Layout */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 3rem 2rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 2.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1.5rem;
+}
+
+.header-brand h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.header-brand h1::before {
+  content: '';
+  display: inline-block;
+  width: 24px; height: 24px;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  border-radius: 6px;
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+}
+
+.header-brand p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  margin-top: 0.25rem;
+}
+
+/* Base Card Style */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+}
+
+.card-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Settings Grid */
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.setting-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  transition: all 0.2s ease;
+}
+
+.setting-item:hover {
+  border-color: var(--border-hover);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.setting-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.setting-info h3 {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.setting-info p {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+/* Toggles and Inputs */
+.switch { position: relative; width: 44px; height: 24px; background: #334155; border-radius: 12px; cursor: pointer; transition: 0.3s; }
+.switch.on { background: var(--success); box-shadow: 0 0 10px rgba(16, 185, 129, 0.3); }
+.switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+.switch.on::after { transform: translateX(20px); }
+
+select, input[type="text"], input[type="number"] {
+  width: 100%;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid #334155;
+  color: var(--text-main);
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  outline: none;
+}
+
+select option {
+  background: #1e293b;
+  color: var(--text-main);
+}
+
+select:focus, input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
 
 /* Drag Drop Zones */
-.drop-zones { display: flex; gap: 1rem; margin-bottom: 2rem; }
+.drop-zones { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; }
 .drop-zone {
-  flex: 1; border: 2px dashed #475569; border-radius: 8px; padding: 2rem 1rem;
-  text-align: center; color: #94a3b8; transition: .2s; cursor: pointer;
-  background: rgba(255,255,255,0.02); position: relative;
+  position: relative;
+  background: var(--bg-card);
+  border: 2px dashed #334155;
+  border-radius: var(--radius-md);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  overflow: hidden;
 }
-.drop-zone:hover, .drop-zone.dragover { border-color: #6366f1; background: rgba(99,102,241,0.05); color: #c7d2fe; }
-.drop-zone h3 { font-size: 1rem; margin-bottom: .5rem; color: #e2e8f0; }
-.drop-zone p { font-size: .85rem; }
-.drop-zone input[type=file] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-.progress-bar { height: 4px; background: #6366f1; width: 0%; position: absolute; bottom: 0; left: 0; border-radius: 0 0 8px 8px; transition: width .2s; }
 
-/* Layout Editor Modal */
-.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
-.modal-bg.show { display: flex; }
-.modal { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 1.5rem; width: 90vw; max-width: 1200px; max-height: 90vh; display: flex; flex-direction: column; }
-.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-.modal-header h2 { font-size: 1.25rem; color: #e2e8f0; }
-.modal-close { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1.5rem; }
-.modal-close:hover { color: #fff; }
-.modal-body { display: flex; gap: 2rem; flex: 1; min-height: 0; }
+.drop-zone:hover, .drop-zone.dragover {
+  border-color: var(--primary);
+  background: rgba(99, 102, 241, 0.05);
+  transform: translateY(-2px);
+}
 
-.editor-sidebar { width: 300px; overflow-y: auto; padding-right: 1rem; }
-.layout-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-.layout-card h4 { margin-bottom: .5rem; font-size: .9rem; color: #94a3b8; }
-.input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
-.input-group { display: flex; flex-direction: column; }
-.input-group label { font-size: .75rem; color: #64748b; margin-bottom: .25rem; }
-.input-group input { background: #0f172a; border: 1px solid #334155; color: #e2e8f0; padding: .4rem; border-radius: 4px; font-family: monospace; font-size: .85rem; width: 100%; }
-.input-group input:focus { border-color: #6366f1; outline: none; }
+.dz-icon { font-size: 2rem; margin-bottom: 1rem; opacity: 0.8; }
+.dz-title { font-size: 1rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.4rem; }
+.dz-desc { font-size: 0.85rem; color: var(--text-muted); }
+.dz-req { display: inline-block; margin-top: 0.75rem; font-size: 0.75rem; padding: 0.25em 0.75em; border-radius: 100px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); }
+.drop-zone input[type=file] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10; }
+.progress-bar { height: 4px; background: linear-gradient(90deg, var(--primary), var(--accent)); width: 0%; position: absolute; bottom: 0; left: 0; transition: width 0.3s ease; }
 
-.editor-canvas-wrap { flex: 1; background: #0f172a; border-radius: 8px; border: 1px solid #334155; position: relative; overflow: auto; padding: 2rem; }
-.editor-canvas { position: relative; background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.5); transform-origin: top left; transition: zoom 0.1s; flex-shrink: 0; margin: 0 auto; }
-.editor-canvas img { display: block; width: 100%; height: 100%; pointer-events: none; }
-.canvas-box { position: absolute; border: 2px dashed rgba(255,42,109,0.5); background: rgba(255,42,109,0.1); display: flex; align-items: center; justify-content: center; font-weight: bold; color: rgba(255,255,255,0.5); text-shadow: 0 1px 3px rgba(0,0,0,0.8); font-size: 1.5rem; cursor: move; transition: border-color .2s, background .2s, color .2s; }
-.canvas-box:hover { border-color: #05d9e8; background: rgba(5,217,232,0.3); color: #fff; z-index: 10; }
-.resize-handle { position: absolute; width: 24px; height: 24px; z-index: 15; background: rgba(5,217,232,0.6); border: 2px solid #fff; border-radius: 50%; opacity: 0; transition: opacity .2s, transform .2s; }
+/* Frames Grid */
+.frames-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.5rem; }
+.frame-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.frame-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255,255,255,0.2);
+  box-shadow: 0 10px 20px -10px rgba(0,0,0,0.5);
+  background: rgba(255,255,255,0.04);
+}
+.frame-preview {
+  height: 260px;
+  background: rgba(0,0,0,0.4);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  position: relative;
+}
+.frame-preview img { height: 100%; width: 100%; object-fit: contain; padding: 0.5rem; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); }
+.frame-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.frame-title { font-size: 0.95rem; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.frame-badge { align-self: flex-start; font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); }
+.frame-actions { display: flex; gap: 0.5rem; margin-top: auto; }
+
+/* Buttons */
+.btn {
+  background: var(--primary);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.85rem;
+  font-family: inherit;
+  transition: all 0.2s;
+  flex: 1;
+  text-align: center;
+}
+.btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+.btn-icon {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-icon:hover { background: rgba(239, 68, 68, 0.2); color: #f87171; border-color: rgba(239, 68, 68, 0.4); }
+
+/* Status Toast */
+.status {
+  position: fixed; bottom: 2rem; right: 2rem;
+  padding: 1rem 1.5rem; border-radius: var(--radius-md); font-size: 0.9rem; font-weight: 500;
+  background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399;
+  backdrop-filter: blur(8px);
+  transform: translateY(20px); opacity: 0; transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  z-index: 9999; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
+  display: flex; align-items: center; gap: 0.75rem;
+}
+.status.show { transform: translateY(0); opacity: 1; }
+.status.error { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: #f87171; }
+
+/* Modal Redesign */
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(8px); }
+.modal-bg.show { display: flex; animation: fadeIn 0.2s ease; }
+.modal { background: var(--bg-surface); border: 1px solid var(--border); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); border-radius: var(--radius-lg); width: 95vw; max-width: 1400px; height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+.modal-header { padding: 1.5rem 2rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); }
+.modal-header h2 { font-size: 1.2rem; font-weight: 600; }
+.modal-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.5rem; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: 0.2s; }
+.modal-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.modal-body { display: flex; flex: 1; min-height: 0; }
+.editor-sidebar { width: 320px; background: rgba(0,0,0,0.2); border-right: 1px solid var(--border); padding: 1.5rem; display: flex; flex-direction: column; overflow-y: auto; }
+.layout-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1rem; }
+.layout-card h4 { font-size: 0.9rem; color: var(--text-main); margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; }
+.input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.input-group label { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.3rem; }
+.input-group input { padding: 0.4rem; font-size: 0.85rem; text-align: center; }
+.editor-canvas-wrap { flex: 1; position: relative; overflow: auto; background: #000; padding: 2rem; display: flex; justify-content: center; align-items: flex-start; }
+.editor-canvas { position: relative; background: transparent; transform-origin: top center; transition: zoom 0.1s; margin: 0 auto; }
+.editor-canvas img { display: block; width: 100%; height: auto; pointer-events: none; }
+.canvas-box { position: absolute; border: 2px dashed rgba(99, 102, 241, 0.8); background: rgba(99, 102, 241, 0.15); display: flex; align-items: center; justify-content: center; font-weight: 700; color: rgba(255,255,255,0.6); font-size: 2rem; cursor: move; transition: border-color .2s, background .2s, color .2s; }
+.canvas-box:hover { border-color: #0ea5e9; background: rgba(14, 165, 233, 0.25); color: #fff; z-index: 10; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.2); }
+.resize-handle { position: absolute; width: 20px; height: 20px; z-index: 15; background: #0ea5e9; border: 2px solid #fff; border-radius: 50%; opacity: 0; transition: opacity .2s, transform .2s; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
 .canvas-box:hover .resize-handle { opacity: 1; }
-.resize-handle:hover { transform: scale(1.2); background: #05d9e8; }
-.resize-handle.tl { top: -12px; left: -12px; cursor: nwse-resize; }
-.resize-handle.tr { top: -12px; right: -12px; cursor: nesw-resize; }
-.resize-handle.bl { bottom: -12px; left: -12px; cursor: nesw-resize; }
-.resize-handle.br { bottom: -12px; right: -12px; cursor: nwse-resize; }
+.resize-handle:hover { transform: scale(1.3); }
+.toolbar { position: absolute; top: 1.5rem; left: 1.5rem; z-index: 50; display: flex; gap: 0.5rem; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(8px); padding: 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--border); }
 
-.btn { background: #6366f1; color: #fff; border: none; padding: .5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; width: 100%; margin-top: 1rem; transition: background .2s; }
-.btn:hover { background: #4f46e5; }
-.btn-sm { padding: .25rem .5rem; font-size: .8rem; width: auto; margin-top: 0; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 </style>
 </head>
 <body>
-<h1>⚙️ <span>Photobox Admin</span></h1>
 
-<div class="card">
-  <h2>Settings</h2>
-  <div class="toggle-row">
-    <label>
-      Bypass Payment
-      <span id="bypassBadge" class="badge off">OFF</span>
-    </label>
-    <div id="bypassToggle" class="switch" onclick="toggleBypass()"></div>
-  </div>
-  <div class="toggle-row" style="margin-top:0.5rem">
-    <label>
-      Fullscreen Mode
-      <span id="fullscreenBadge" class="badge off">OFF</span>
-    </label>
-    <div id="fullscreenToggle" class="switch" onclick="toggleFullscreen()"></div>
-  </div>
-  <div class="toggle-row" style="margin-top:0.5rem">
-    <label>Camera Mode</label>
-    <select id="cameraTypeSelect" style="background:#0f172a; color:#e2e8f0; border:1px solid #334155; padding:0.5rem; border-radius:4px" onchange="updateCameraSettings()">
-      <option value="dslr">DSLR (digiCamControl)</option>
-      <option value="webcam">Webcam (Browser)</option>
-    </select>
-  </div>
-  <div class="toggle-row" id="dslrModeRow" style="margin-top:0.5rem">
-    <label>DSLR Driver
-      <span style="font-size:.75rem;color:#64748b;margin-left:.5rem">Requires app restart to take effect</span>
-    </label>
-    <select id="dslrModeSelect" style="background:#0f172a; color:#e2e8f0; border:1px solid #334155; padding:0.5rem; border-radius:4px" onchange="updateCameraSettings()">
-      <option value="integrated">Integrated (DSLRBridge — no DCC needed)</option>
-      <option value="legacy">Legacy (DigiCamControl app must be running)</option>
-    </select>
-  </div>
-  <div class="toggle-row" id="webcamRow" style="margin-top:0.5rem; display:none;">
-    <label>Webcam Device</label>
-    <select id="webcamSelect" style="background:#0f172a; color:#e2e8f0; border:1px solid #334155; padding:0.5rem; border-radius:4px" onchange="updateCameraSettings()">
-      <option value="">Default Webcam</option>
-    </select>
-  </div>
-</div>
+<div class="container">
+  <header class="header">
+    <div class="header-brand">
+      <h1>Photobox Workspace</h1>
+      <p>Configure hardware, capture settings, and design layouts.</p>
+    </div>
+  </header>
 
-<div class="card">
-  <h2>Upload PNG Frame Context</h2>
-  <div class="drop-zones">
+  <div class="card">
+    <h2 class="card-title">Station Preferences</h2>
+    <div class="settings-grid">
+      
+      <!-- Payment Bypass -->
+      <div class="setting-item">
+        <div class="setting-header">
+          <div class="setting-info">
+            <h3>Bypass Payment</h3>
+            <p>Allow users to capture without QRIS</p>
+          </div>
+          <div id="bypassToggle" class="switch" onclick="toggleBypass()"></div>
+        </div>
+      </div>
+
+      <!-- Fullscreen -->
+      <div class="setting-item">
+        <div class="setting-header">
+          <div class="setting-info">
+            <h3>Kiosk Fullscreen</h3>
+            <p>Lock frontend to borderless fullscreen</p>
+          </div>
+          <div id="fullscreenToggle" class="switch" onclick="toggleFullscreen()"></div>
+        </div>
+      </div>
+
+      <!-- Camera Mode -->
+      <div class="setting-item">
+        <div class="setting-info" style="margin-bottom: 0.75rem;">
+          <h3>Camera Mode</h3>
+          <p>Select capture hardware type</p>
+        </div>
+        <select id="cameraTypeSelect" onchange="updateCameraSettings()">
+          <option value="dslr">DSLR Camera</option>
+          <option value="webcam">Webcam</option>
+        </select>
+      </div>
+
+      <!-- DSLR Driver -->
+      <div class="setting-item" id="dslrModeRow">
+        <div class="setting-info" style="margin-bottom: 0.75rem;">
+          <h3>DSLR Integration</h3>
+          <p style="color:#f59e0b">Restart app to apply changes</p>
+        </div>
+        <select id="dslrModeSelect" onchange="updateCameraSettings()">
+          <option value="integrated">Integrated Engine (DSLRBridge)</option>
+          <option value="legacy">Legacy Mode (DigiCamControl GUI)</option>
+        </select>
+      </div>
+
+      <!-- Webcam Device -->
+      <div class="setting-item" id="webcamRow" style="display:none;">
+        <div class="setting-info" style="margin-bottom: 0.75rem;">
+          <h3>Webcam Device</h3>
+          <p>Select video source</p>
+        </div>
+        <select id="webcamSelect" onchange="updateCameraSettings()">
+          <option value="">Default System Webcam</option>
+        </select>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="card-title">Frame Management</h2>
+    <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1.5rem;">Upload transparent PNG overlays for the photobooth. The system will automatically detect the template type based on the drop zone.</p>
     
-    <!-- Strip 2x6 -->
-    <div class="drop-zone" id="dz1">
-      <h3>Photostrip (2x6)</h3>
-      <p>Drag PNG here<br>Required size: 600×1800 px</p>
-      <input type="file" accept=".png" onchange="handleUpload(this, '4strip_2x6')">
-      <div class="progress-bar" id="pb1"></div>
-    </div>
+    <div class="drop-zones">
+      <div class="drop-zone" id="dz1" ondrop="handleDrop(event, '4strip_2x6')" ondragover="event.preventDefault()">
+        <div class="dz-icon">🎞️</div>
+        <h3 class="dz-title">Photostrip (2x6)</h3>
+        <p class="dz-desc">Vertical classic strip format</p>
+        <span class="dz-req">600 × 1800 px PNG</span>
+        <input type="file" accept=".png" onchange="handleUpload(this, '4strip_2x6')">
+        <div class="progress-bar" id="pb1"></div>
+      </div>
 
-    <!-- Postcard 4x6 -->
-    <div class="drop-zone" id="dz2">
-      <h3>Postcard (4x6)</h3>
-      <p>Drag PNG here<br>Required size: 1200×1800 px</p>
-      <input type="file" accept=".png" onchange="handleUpload(this, '4postcard_4x6')">
-      <div class="progress-bar" id="pb2"></div>
+      <div class="drop-zone" id="dz2" ondrop="handleDrop(event, '4postcard_4x6')" ondragover="event.preventDefault()">
+        <h3 class="dz-title">Postcard (4x6)</h3>
+        <p class="dz-desc">2x2 grid landscape format</p>
+        <span class="dz-req">1200 × 1800 px PNG</span>
+        <input type="file" accept=".png" onchange="handleUpload(this, '4postcard_4x6')">
+        <div class="progress-bar" id="pb2"></div>
+      </div>
     </div>
-
   </div>
 
-  <h2>Active Frames</h2>
-  <div id="framesGrid" class="frames-grid"></div>
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+      <h2 class="card-title" style="margin-bottom:0;">Active Gallery</h2>
+      <div style="display:flex; gap:1rem;">
+        <input type="text" id="frameSearch" placeholder="Search frames..." style="width:200px; padding:0.4rem 0.8rem;" oninput="render()">
+        <select id="frameTemplateFilter" style="width:180px; padding:0.4rem 0.8rem;" onchange="render()">
+          <option value="all">All Types</option>
+          <option value="4strip_2x6">Photostrip (2x6)</option>
+          <option value="4postcard_4x6">Postcard (4x6)</option>
+        </select>
+      </div>
+    </div>
+    <div id="framesGrid" class="frames-grid"></div>
+  </div>
+
 </div>
 
 <div id="status" class="status"></div>
@@ -174,20 +441,21 @@ h1 span{color:#e2e8f0}
 <div class="modal-bg" id="layoutModal">
   <div class="modal">
     <div class="modal-header">
-      <h2 id="modalTitle">Edit Layout</h2>
+      <h2 id="modalTitle">Layout Mapping</h2>
       <button class="modal-close" onclick="closeEditor()">×</button>
     </div>
     <div class="modal-body">
       <div class="editor-sidebar">
-        <p style="color:#94a3b8; font-size:0.85rem; margin-bottom:1rem;">Adjust the coordinates for each photo. Values are in pixels relative to the frame's top-left corner.</p>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1.5rem; line-height:1.4;">Adjust capture zones. Drag the boxes on the canvas, drag corners to resize, or type precise pixel values below.</p>
         <div id="sidebarInputs"></div>
-        <button class="btn" onclick="saveLayouts()">Save Changes</button>
+        <div style="flex: 1"></div>
+        <button class="btn" onclick="saveLayouts()" style="padding: 1rem; font-size: 0.95rem; margin-top:2rem;">💾 Save Layout Settings</button>
       </div>
       <div class="editor-canvas-wrap" id="canvasWrap">
-        <!-- Scale controls -->
-        <div style="position:sticky; top:0; left:0; z-index:9; display:flex; gap:.5rem; margin-bottom: 1rem; align-self: flex-start; justify-content: flex-start; width: 100%;">
-          <button class="btn btn-sm" onclick="zoomCanvas(0.1)">Zoom In</button>
-          <button class="btn btn-sm" onclick="zoomCanvas(-0.1)">Zoom Out</button>
+        <div class="toolbar">
+          <button class="btn btn-sm" onclick="zoomCanvas(0.1)" style="min-width:40px; background:rgba(255,255,255,0.1)">+</button>
+          <button class="btn btn-sm" onclick="zoomCanvas(-0.1)" style="min-width:40px; background:rgba(255,255,255,0.1)">-</button>
+          <span style="display:flex; align-items:center; padding:0 0.5rem; font-size:0.8rem; color:var(--text-muted)" id="zoomIndicator">100%</span>
         </div>
         <div class="editor-canvas" id="canvas">
           <img id="canvasImg" src="" alt="Frame Preview">
@@ -200,6 +468,7 @@ h1 span{color:#e2e8f0}
 
 <script>
 let config = { bypassPayment: false, fullscreen: false, frames: [] };
+let lastConfigJson = "";
 
 async function load() {
   const r = await fetch('/api/config');
@@ -221,24 +490,29 @@ async function updateCameraSettings() {
 }
 
 function render() {
+  var sqInput = document.getElementById('frameSearch');
+  var tfSelect = document.getElementById('frameTemplateFilter');
+  var currentSearch = (sqInput ? sqInput.value : '').toLowerCase();
+  var currentType = tfSelect ? tfSelect.value : 'all';
+  
+  // Combine config + UI state for change detection to prevent flickering
+  var stateSnapshot = JSON.stringify({ config, currentSearch, currentType });
+  if (stateSnapshot === lastConfigJson) return; 
+  lastConfigJson = stateSnapshot;
+
   const t = document.getElementById('bypassToggle');
   const b = document.getElementById('bypassBadge');
   if (config.bypassPayment) {
     t.classList.add('on');
-    b.className = 'badge on'; b.textContent = 'ON';
   } else {
     t.classList.remove('on');
-    b.className = 'badge off'; b.textContent = 'OFF';
   }
   
   const ft = document.getElementById('fullscreenToggle');
-  const fb = document.getElementById('fullscreenBadge');
   if (config.fullscreen) {
     ft.classList.add('on');
-    fb.className = 'badge on'; fb.textContent = 'ON';
   } else {
     ft.classList.remove('on');
-    fb.className = 'badge off'; fb.textContent = 'OFF';
   }
 
   const cType = document.getElementById('cameraTypeSelect');
@@ -267,27 +541,42 @@ function render() {
     wRow.style.display = 'none';
   }
   
+  var sqInput = document.getElementById('frameSearch');
+  var tfSelect = document.getElementById('frameTemplateFilter');
+  var searchQuery = (sqInput ? sqInput.value : '').toLowerCase();
+  var typeFilter = tfSelect ? tfSelect.value : 'all';
+
+  const filteredFrames = config.frames.filter(f => {
+    if (f.id === 'none') return true;
+    var label = f.label || '';
+    var matchesSearch = label.toLowerCase().includes(searchQuery);
+    var matchesType = typeFilter === 'all' || f.template === typeFilter;
+    return matchesSearch && matchesType;
+  });
+
   const grid = document.getElementById('framesGrid');
-  grid.innerHTML = config.frames.map(f => {
+  grid.innerHTML = filteredFrames.map(f => {
     let previewHtml = '';
-    const ts = new Date().getTime();
+    // The image id already contains a timestamp from the backend so cache busting ?t= is not needed anymore
     if (f.id === 'none') {
       previewHtml = '<div class="frame-preview" style="background:rgba(0,0,0,0.5); color:#64748b; font-size:2rem;">🚫</div>';
     } else {
-      previewHtml = '<div class="frame-preview"><img src="/frames/' + esc(f.id) + '.png?t=' + ts + '" alt="' + esc(f.label) + '"></div>';
+      previewHtml = '<div class="frame-preview"><img src="/frames/' + esc(f.id) + '.png" alt="' + esc(f.label) + '"></div>';
     }
 
-    let templateBadge = f.template ? '<span class="badge on">' + esc(f.template) + '</span>' : '<span class="badge off">Any</span>';
+    let templateBadge = f.template ? '<span class="frame-badge">' + esc(f.template) + '</span>' : '<span class="frame-badge">Any</span>';
 
     return '<div class="frame-card">' +
       previewHtml +
-      '<div class="frame-info">' +
-        '<h4>' + esc(f.label) + '</h4>' +
-        '<p><code>' + esc(f.id) + '</code> — ' + templateBadge + '</p>' +
+      '<div class="frame-meta">' +
+        '<h4 class="frame-title" title="' + esc(f.label) + '">' + esc(f.label) + '</h4>' +
+        templateBadge +
       '</div>' +
       '<div class="frame-actions">' +
-        '<button class="btn btn-sm" style="flex:1" onclick="openEditor(\'' + esc(f.id) + '\')">Edit Layout</button>' +
-        '<button class="del-btn" onclick="removeFrame(\'' + esc(f.id) + '\')" title="Delete">🗑</button>' +
+        '<button class="btn" onclick="openEditor(\'' + esc(f.id) + '\')">Configure Layout</button>' +
+        '<button class="btn-icon" onclick="removeFrame(\'' + esc(f.id) + '\')">' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>' +
+        '</button>' +
       '</div>' +
     '</div>';
   }).join('');
@@ -401,8 +690,7 @@ function openEditor(id) {
   // Setup canvas
   const canvas = document.getElementById('canvas');
   const img = document.getElementById('canvasImg');
-  const ts = new Date().getTime();
-  img.src = '/frames/' + f.id + '.png?t=' + ts;
+  img.src = '/frames/' + f.id + '.png';
   
   // Real dimensions
   let w = 600, h = 1800;
@@ -441,23 +729,18 @@ function zoomCanvas(delta) {
 }
 
 function updateCanvasTransform() {
-  // Use CSS zoom property or transform with explicit origin.
-  // Transform scale is safer across browsers, but requires the wrapper to adjust.
-  // Zoom is preferred here because it affects layout flow and allows scrolling safely.
   document.getElementById('canvas').style.zoom = activeTemplateScale;
+  document.getElementById('zoomIndicator').textContent = Math.round(activeTemplateScale * 100) + '%';
 }
 
 function renderSidebarInputs() {
   const s = document.getElementById('sidebarInputs');
   s.innerHTML = activeLayouts.map((lo, i) =>
     '<div class="layout-card">' +
-      '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.5rem;">' +
-        '<h4 style="margin:0;">Photo ' + (i+1) + '</h4>' +
-        '<button class="btn btn-sm" style="margin:0; width:auto; background:#334155;" onclick="resetLayout(' + i + ')">Reset</button>' +
-      '</div>' +
+      '<h4>Slot ' + (i+1) + ' <button class="btn btn-sm" style="background: rgba(255,255,255,0.1); border:none; width:auto; margin:0;" onclick="resetLayout(' + i + ')">Reset</button></h4>' +
       '<div class="input-grid">' +
-        '<div class="input-group"><label>X</label><input type="number" value="' + lo.x + '" onchange="updateVal(' + i + ', \'x\', this.value)"></div>' +
-        '<div class="input-group"><label>Y</label><input type="number" value="' + lo.y + '" onchange="updateVal(' + i + ', \'y\', this.value)"></div>' +
+        '<div class="input-group"><label>X Pos</label><input type="number" value="' + lo.x + '" onchange="updateVal(' + i + ', \'x\', this.value)"></div>' +
+        '<div class="input-group"><label>Y Pos</label><input type="number" value="' + lo.y + '" onchange="updateVal(' + i + ', \'y\', this.value)"></div>' +
         '<div class="input-group"><label>Width</label><input type="number" value="' + lo.width + '" onchange="updateVal(' + i + ', \'width\', this.value)"></div>' +
         '<div class="input-group"><label>Height</label><input type="number" value="' + lo.height + '" onchange="updateVal(' + i + ', \'height\', this.value)"></div>' +
       '</div>' +
@@ -672,6 +955,18 @@ let loadTimer = setInterval(() => {
   if (!activeFrameId) load(); // only auto-refresh if editor is closed
 }, 5000);
 load();
+
+function handleDrop(e, template) {
+  e.preventDefault();
+  const dz = document.getElementById(template === '4strip_2x6' ? 'dz1' : 'dz2');
+  dz.classList.remove('dragover');
+  
+  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    const input = dz.querySelector('input[type="file"]');
+    input.files = e.dataTransfer.files;
+    handleUpload(input, template);
+  }
+}
 </script>
 </body>
 </html>`

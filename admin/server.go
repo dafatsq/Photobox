@@ -263,9 +263,10 @@ select:focus, input:focus {
   font-size: 0.85rem;
   font-family: inherit;
   transition: all 0.2s;
-  flex: 1;
+  flex-shrink: 0;
   text-align: center;
 }
+.btn-sm { flex: 0 0 auto !important; width: auto !important; padding: 0.25rem 0.75rem !important; font-size: 0.78rem !important; }
 .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
 .btn-icon {
   background: var(--danger-bg);
@@ -312,9 +313,13 @@ select:focus, input:focus {
 .editor-canvas img { display: block; width: 100%; height: auto; pointer-events: none; }
 .canvas-box { position: absolute; border: 2px dashed rgba(99, 102, 241, 0.8); background: rgba(99, 102, 241, 0.15); display: flex; align-items: center; justify-content: center; font-weight: 700; color: rgba(255,255,255,0.6); font-size: 2rem; cursor: move; transition: border-color .2s, background .2s, color .2s; }
 .canvas-box:hover { border-color: #0ea5e9; background: rgba(14, 165, 233, 0.25); color: #fff; z-index: 10; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.2); }
-.resize-handle { position: absolute; width: 20px; height: 20px; z-index: 15; background: #0ea5e9; border: 2px solid #fff; border-radius: 50%; opacity: 0; transition: opacity .2s, transform .2s; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+.resize-handle { position: absolute; width: 14px; height: 14px; z-index: 15; background: #0ea5e9; border: 2px solid #fff; border-radius: 50%; opacity: 0; transition: opacity .2s, transform .2s; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
 .canvas-box:hover .resize-handle { opacity: 1; }
-.resize-handle:hover { transform: scale(1.3); }
+.resize-handle:hover { transform: scale(1.4); }
+.resize-handle.tl { top: -7px; left: -7px; cursor: nw-resize; }
+.resize-handle.tr { top: -7px; right: -7px; cursor: ne-resize; }
+.resize-handle.bl { bottom: -7px; left: -7px; cursor: sw-resize; }
+.resize-handle.br { bottom: -7px; right: -7px; cursor: se-resize; }
 .toolbar { position: absolute; top: 1.5rem; left: 1.5rem; z-index: 50; display: flex; gap: 0.5rem; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(8px); padding: 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--border); }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

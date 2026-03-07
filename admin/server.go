@@ -399,6 +399,46 @@ select:focus, input:focus {
     </div>
   </div>
 
+  <style>
+    #r2Card summary::-webkit-details-marker { display: none; } /* Hide default Safari arrow */
+    .r2-chevron { transition: transform 0.3s ease; color: var(--text-muted); }
+    #r2Card details[open] .r2-chevron { transform: rotate(180deg); }
+  </style>
+  <div class="card" id="r2Card">
+    <details style="cursor: pointer;">
+      <summary style="outline:none; list-style:none; display:flex; justify-content:space-between; align-items:center;">
+        <h2 class="card-title" style="margin:0;">Photo Sharing (Cloudflare R2)</h2>
+        <svg class="r2-chevron" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div style="margin-top: 1.5rem; cursor: default;">
+        <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1.5rem;">After a session, the app uploads the photo to your R2 bucket and shows a QR code so guests can scan and download their photo. Each admin enters their own Cloudflare credentials.</p>
+        <div class="settings-grid">
+          <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem;">
+            <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Account ID</label>
+            <input type="text" id="r2AccountId" placeholder="e.g. abc123def456..." style="width:100%;">
+          </div>
+          <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem;">
+            <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Access Key ID</label>
+            <input type="text" id="r2AccessKeyId" placeholder="R2 API token key ID..." style="width:100%;">
+          </div>
+          <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem;">
+            <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Secret Access Key</label>
+            <input type="password" id="r2SecretKey" placeholder="Leave blank to keep current..." style="width:100%;">
+          </div>
+          <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem;">
+            <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Bucket Name</label>
+            <input type="text" id="r2BucketName" placeholder="my-photobox-bucket" style="width:100%;">
+          </div>
+          <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem; grid-column: 1 / -1;">
+            <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Public Base URL</label>
+            <input type="text" id="r2PublicBaseUrl" placeholder="https://pub-xxx.r2.dev or https://photos.yourdomain.com" style="width:100%;">
+          </div>
+        </div>
+        <button class="btn" onclick="saveR2Config()" style="margin-top:1.5rem; width:auto; flex:none; padding:0.6rem 2rem;">Save R2 Settings</button>
+      </div>
+    </details>
+  </div>
+
   <div class="card">
     <h2 class="card-title">Frame Management</h2>
     <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1.5rem;">Upload transparent PNG overlays for the photobooth. The system will automatically detect the template type based on the drop zone.</p>
@@ -438,35 +478,8 @@ select:focus, input:focus {
     <div id="framesGrid" class="frames-grid"></div>
   </div>
 
-  <div class="card" id="r2Card">
-    <h2 class="card-title">Photo Sharing (Cloudflare R2)</h2>
-    <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1.5rem;">After a session, the app uploads the photo to your R2 bucket and shows a QR code so guests can scan and download their photo. Each admin enters their own Cloudflare credentials.</p>
-    <div class="settings-grid">
-      <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem;">
-        <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Account ID</label>
-        <input type="text" id="r2AccountId" placeholder="e.g. abc123def456..." style="width:100%;">
-      </div>
-      <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem;">
-        <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Access Key ID</label>
-        <input type="text" id="r2AccessKeyId" placeholder="R2 API token key ID..." style="width:100%;">
-      </div>
-      <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem;">
-        <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Secret Access Key</label>
-        <input type="password" id="r2SecretKey" placeholder="Leave blank to keep current..." style="width:100%;">
-      </div>
-      <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem;">
-        <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Bucket Name</label>
-        <input type="text" id="r2BucketName" placeholder="my-photobox-bucket" style="width:100%;">
-      </div>
-      <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem; grid-column: 1 / -1;">
-        <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Public Base URL</label>
-        <input type="text" id="r2PublicBaseUrl" placeholder="https://pub-xxx.r2.dev or https://photos.yourdomain.com" style="width:100%;">
-      </div>
-    </div>
-    <button class="btn" onclick="saveR2Config()" style="margin-top:1.5rem; width:auto; flex:none; padding:0.6rem 2rem;">Save R2 Settings</button>
-  </div>
-
 </div>
+
 
 <div id="status" class="status"></div>
 

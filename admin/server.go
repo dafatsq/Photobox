@@ -444,12 +444,12 @@ select:focus, input:focus {
     <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1.5rem;">Upload transparent PNG overlays for the photobooth. The system will automatically detect the template type based on the drop zone.</p>
     
     <div class="drop-zones">
-      <div class="drop-zone" id="dz1" ondrop="handleDrop(event, '4strip_2x6')" ondragover="event.preventDefault()">
+      <div class="drop-zone" id="dz1" ondrop="handleDrop(event, '3strip_2x6')" ondragover="event.preventDefault()">
         <div class="dz-icon">🎞️</div>
         <h3 class="dz-title">Photostrip (2x6)</h3>
         <p class="dz-desc">Vertical classic strip format</p>
         <span class="dz-req">600 × 1800 px PNG</span>
-        <input type="file" accept=".png" onchange="handleUpload(this, '4strip_2x6')">
+        <input type="file" accept=".png" onchange="handleUpload(this, '3strip_2x6')">
         <div class="progress-bar" id="pb1"></div>
       </div>
 
@@ -470,7 +470,7 @@ select:focus, input:focus {
         <input type="text" id="frameSearch" placeholder="Search frames..." style="width:200px; padding:0.4rem 0.8rem;" oninput="render()">
         <select id="frameTemplateFilter" style="width:180px; padding:0.4rem 0.8rem;" onchange="render()">
           <option value="all">All Types</option>
-          <option value="4strip_2x6">Photostrip (2x6)</option>
+          <option value="3strip_2x6">Photostrip (2x6)</option>
           <option value="4postcard_4x6">Postcard (4x6)</option>
         </select>
       </div>
@@ -672,7 +672,7 @@ async function handleUpload(input, template) {
   }
 
   // Get progress bar element
-  const pbId = template === '4strip_2x6' ? 'pb1' : 'pb2';
+  const pbId = template === '3strip_2x6' ? 'pb1' : 'pb2';
   const pb = document.getElementById(pbId);
   pb.style.width = '50%';
 
@@ -737,8 +737,9 @@ function openEditor(id) {
   // Deep copy layouts so we don't modify config until save
   activeLayouts = JSON.parse(JSON.stringify(f.layouts || []));
   
-  if (activeLayouts.length !== 4) {
-    flash('Warning: Frame does not have exactly 4 layouts defined.', true);
+  const expectedSlots = f.template === '3strip_2x6' ? 3 : 4;
+  if (activeLayouts.length !== expectedSlots) {
+    flash('Warning: Frame does not have exactly ' + expectedSlots + ' layouts defined.', true);
   }
 
   document.getElementById('modalTitle').textContent = 'Edit Layout: ' + f.label;
@@ -808,8 +809,8 @@ function resetLayout(idx) {
   const f = config.frames.find(x => x.id === activeFrameId);
   if (!f) return;
   
-  if (f.template === '4strip_2x6') {
-    activeLayouts[idx] = { x: 0, y: idx * 400, width: 600, height: 400 };
+  if (f.template === '3strip_2x6') {
+    activeLayouts[idx] = { x: 0, y: 100 + (idx * 500), width: 600, height: 400 };
   } else if (f.template === '4postcard_4x6') {
     const col = idx % 2;
     const row = Math.floor(idx / 2);
@@ -1014,7 +1015,7 @@ load();
 
 function handleDrop(e, template) {
   e.preventDefault();
-  const dz = document.getElementById(template === '4strip_2x6' ? 'dz1' : 'dz2');
+  const dz = document.getElementById(template === '3strip_2x6' ? 'dz1' : 'dz2');
   dz.classList.remove('dragover');
   
   if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
@@ -1210,7 +1211,7 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 			return
 		}
 
-		template := r.FormValue("template") // "4strip_2x6" or "4postcard_4x6"
+		template := r.FormValue("template") // "3strip_2x6" or "4postcard_4x6"
 		label := r.FormValue("label")
 		if label == "" {
 			label = handler.Filename
@@ -1246,14 +1247,14 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 
 		// Provide default layouts based on template so user has a starting point
 		var layouts []PhotoLayout
-		if template == "4strip_2x6" {
-			// 600x1800, stack of 4. A 600 width in 3:2 needs 400 height.
-			// 4 * 400 = 1600. Leaving 200px of empty space at the bottom.
+		if template == "3strip_2x6" {
+			// 600x1800, stack of 3. Each slot is 600x400 (3:2 ratio).
+			// We stagger them evenly in the 1800px vertical space.
+			// Example: y=100, y=600, y=1100
 			layouts = []PhotoLayout{
-				{X: 0, Y: 0, Width: 600, Height: 400},
-				{X: 0, Y: 400, Width: 600, Height: 400},
-				{X: 0, Y: 800, Width: 600, Height: 400},
-				{X: 0, Y: 1200, Width: 600, Height: 400},
+				{X: 0, Y: 100, Width: 600, Height: 400},
+				{X: 0, Y: 600, Width: 600, Height: 400},
+				{X: 0, Y: 1100, Width: 600, Height: 400},
 			}
 		} else if template == "4postcard_4x6" {
 			// 1200x1800. Needs 4 boxes in 3:2 ratio.

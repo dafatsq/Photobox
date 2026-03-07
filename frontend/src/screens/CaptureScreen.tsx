@@ -289,12 +289,12 @@ const CaptureScreen: React.FC = () => {
     }, [reviewMode, reviewTimeLeft, goToProcessing, sessionStarted]);
 
     // Dimensions setup for percentage mapping
-    const baseWidth = selectedTemplate === '4strip_2x6' ? 600 : 1200;
+    const baseWidth = selectedTemplate === '3strip_2x6' ? 600 : 1200;
     const baseHeight = 1800;
 
     // We scale the display workspace based on window height so it fits on screen
     const workspaceHeightMap = {
-        '4strip_2x6': '80vh',
+        '3strip_2x6': '80vh',
         '4postcard_4x6': '70vh'
     };
     const workspaceHeight = selectedTemplate ? workspaceHeightMap[selectedTemplate] : '80vh';
@@ -349,14 +349,6 @@ const CaptureScreen: React.FC = () => {
                         aspectRatio: workspaceAspect
                     }}
                 >
-                    {/* The Transparent PNG on top */}
-                    {selectedFrame && selectedFrame !== 'none' && (
-                        <div
-                            className="capture-workspace-overlay"
-                            style={{ background: `url('http://localhost:8080/frames/${selectedFrame}.png') center/cover` }}
-                        />
-                    )}
-
                     {/* The Dynamic Layout Boxes */}
                     {frameConfig && frameConfig.layouts && frameConfig.layouts.map((layout: any, index: number) => {
                         // Calculate percentage-based positioning so it scales perfectly with the workspace
@@ -431,6 +423,18 @@ const CaptureScreen: React.FC = () => {
                                 <img ref={imgRef} src={`${liveViewURL}?t=${Date.now()}`} alt="Live View" style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }} />
                             )}
                         </div>
+
+                    )}
+
+                    {/* The Transparent PNG on top */}
+                    {selectedFrame && selectedFrame !== 'none' && (
+                        <div
+                            className="capture-workspace-overlay"
+                            style={{
+                                background: `url('http://localhost:8080/frames/${selectedFrame}.png') center/cover`,
+                                zIndex: 100
+                            }}
+                        />
                     )}
 
                     {/* Countdown Overlay */}
@@ -513,7 +517,7 @@ const CaptureScreen: React.FC = () => {
             </div>
 
             <FlashOverlay trigger={flashTrigger} />
-        </div>
+        </div >
     );
 };
 

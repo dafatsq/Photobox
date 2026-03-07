@@ -71,14 +71,14 @@
     gap: 3px;
 }
 
-.template-preview-layout.\34 strip_2x6 {
+.template-preview-layout.\33 strip_2x6 {
     flex-direction: column;
     width: 50px;
 }
 
-.template-preview-layout.\34 strip_2x6 .preview-cell {
+.template-preview-layout.\33 strip_2x6 .preview-cell {
     width: 50px;
-    height: 28px;
+    height: 38px;
     background: rgba(139, 92, 246, 0.3);
     border-radius: 3px;
 }

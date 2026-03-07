@@ -29,7 +29,7 @@ const ProcessingScreen: React.FC = () => {
                 const compositePath = await ProcessComposite(
                     capturedImages,
                     capturedMirrored,
-                    selectedTemplate || '4strip_2x6',
+                    selectedTemplate || '3strip_2x6',
                     selectedFrame || 'none'
                 );
 

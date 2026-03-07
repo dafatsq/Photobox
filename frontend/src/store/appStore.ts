@@ -10,7 +10,7 @@ export type AppState =
   | 'done'
   | 'error';
 
-export type TemplateType = '4strip_2x6' | '4postcard_4x6';
+export type TemplateType = '3strip_2x6' | '4postcard_4x6';
 
 interface AppStore {
   // Current state in the flow
@@ -52,18 +52,16 @@ function generateSessionId(): string {
   return `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
+// Explicit shot count per template.
+// The template ID string prefix (e.g. "4" in "3strip_2x6") is intentionally
+// NOT used here so we can independently control the shot count.
+const SHOT_COUNTS: Record<string, number> = {
+  '3strip_2x6': 3,
+  '4postcard_4x6': 4,
+};
+
 function getShotCount(template: TemplateType): number {
-  if (!template || template.length === 0) return 4;
-
-  // Extract the first character and parse it as integer
-  const firstChar = template.charAt(0);
-  const count = parseInt(firstChar, 10);
-
-  if (isNaN(count) || count <= 0) {
-    return 4; // fallback default
-  }
-
-  return count;
+  return SHOT_COUNTS[template] ?? 4;
 }
 
 export const useAppStore = create<AppStore>((set) => ({
@@ -76,7 +74,7 @@ export const useAppStore = create<AppStore>((set) => ({
   capturedMirrored: [],
   compositeImagePath: null,
   currentSequence: 0,
-  totalShots: 4,
+  totalShots: 3,
   errorMessage: '',
 
   goToPayment: () =>

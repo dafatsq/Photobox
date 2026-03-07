@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../store/appStore';
-import { SendEmail, GetImageBase64 } from '../../wailsjs/go/main/App';
+import { UploadAndGetQR, GetImageBase64 } from '../../wailsjs/go/main/App';
 import './ShareScreen.css';
 
 const ShareScreen: React.FC = () => {
@@ -9,41 +9,33 @@ const ShareScreen: React.FC = () => {
     const goToError = useAppStore((s) => s.goToError);
     const reset = useAppStore((s) => s.reset);
 
-    const [email, setEmail] = useState('');
-    const [sending, setSending] = useState(false);
-    const [sent, setSent] = useState(false);
+    const [qrDataUri, setQrDataUri] = useState('');
     const [b64Image, setB64Image] = useState('');
+    const [uploading, setUploading] = useState(true);
+    const [uploadError, setUploadError] = useState('');
 
     useEffect(() => {
-        if (compositeImagePath) {
-            GetImageBase64(compositeImagePath)
-                .then(b64 => setB64Image(b64))
-                .catch(err => console.error("Failed to load image base64:", err));
-        }
+        if (!compositeImagePath) return;
+
+        // Load the photo preview
+        GetImageBase64(compositeImagePath)
+            .then(b64 => setB64Image(b64))
+            .catch(err => console.error('Failed to load image preview:', err));
+
+        // Upload to R2 and generate QR
+        setUploading(true);
+        setUploadError('');
+        UploadAndGetQR(compositeImagePath)
+            .then(qr => {
+                setQrDataUri(qr);
+                setUploading(false);
+            })
+            .catch(err => {
+                console.error('Upload failed:', err);
+                setUploading(false);
+                setUploadError(typeof err === 'string' ? err : 'Upload failed. Please check the R2 settings in the admin panel.');
+            });
     }, [compositeImagePath]);
-
-    const handleSendEmail = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!email || !compositeImagePath || sending) return;
-
-        setSending(true);
-        try {
-            await SendEmail(compositeImagePath, email);
-            setSending(false);
-            setSent(true);
-            setTimeout(() => {
-                goToDone();
-            }, 3000);
-        } catch (err) {
-            console.error('Email failed:', err);
-            setSending(false);
-            goToError('Failed to send email. Please check your connection or try again.');
-        }
-    };
-
-    const handleSkip = () => {
-        goToDone();
-    };
 
     return (
         <div className="share-screen">
@@ -66,38 +58,26 @@ const ShareScreen: React.FC = () => {
                 </div>
 
                 <div className="share-actions">
-                    {sent ? (
-                        <div className="share-success">
-                            <span className="success-icon">✉️</span>
-                            <h3>Sent Successfully!</h3>
-                            <p>Check your inbox shortly.</p>
+                    {uploading ? (
+                        <div className="qr-loading">
+                            <div className="qr-spinner"></div>
+                            <p>Uploading your photo...</p>
+                        </div>
+                    ) : uploadError ? (
+                        <div className="qr-error">
+                            <span className="error-icon">⚠️</span>
+                            <p>{uploadError}</p>
+                            <button className="skip-btn" onClick={goToDone}>Continue anyway</button>
                         </div>
                     ) : (
                         <>
-                            <h3>Send via Email</h3>
-                            <form className="email-form" onSubmit={handleSendEmail}>
-                                <input
-                                    type="email"
-                                    placeholder="Enter your email address"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                    className="email-input"
-                                    disabled={sending}
-                                />
-                                <button
-                                    type="submit"
-                                    className={`email-submit-btn ${sending ? 'sending' : ''}`}
-                                    disabled={sending || !email}
-                                >
-                                    {sending ? 'Sending...' : 'Send Photo 🚀'}
-                                </button>
-                            </form>
-
-                            <div className="share-divider"><span>or</span></div>
-
-                            <button className="skip-btn" onClick={handleSkip}>
-                                Skip & Finish
+                            <h3 className="qr-title">Scan to Download</h3>
+                            <p className="qr-hint">Point your phone camera at the QR code to get your photo</p>
+                            <div className="qr-container">
+                                <img src={qrDataUri} alt="QR Code" className="qr-image" />
+                            </div>
+                            <button className="skip-btn" onClick={goToDone}>
+                                Done
                             </button>
                         </>
                     )}

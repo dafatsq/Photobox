@@ -11,11 +11,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"photobox/admin"
 	"photobox/hardware"
+	"photobox/r2"
+	"time"
 
+	"github.com/skip2/go-qrcode"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	xdraw "golang.org/x/image/draw"
 )
@@ -379,12 +381,33 @@ func (a *App) GetFrameConfig(id string) (*FrontendFrameConfig, error) {
 	return nil, fmt.Errorf("frame config not found: %s", id)
 }
 
-// SendEmail mocks sending the final image via email.
-func (a *App) SendEmail(imagePath string, emailAddress string) error {
-	fmt.Printf("[APP] Mock Send Email -> To: %s | Attachment: %s\n", emailAddress, imagePath)
-	// In production, instantiate an SMTP client or AWS SES call here.
-	time.Sleep(1500 * time.Millisecond) // simulate network delay
-	return nil
+// UploadAndGetQR uploads the composite image to Cloudflare R2 using the admin's
+// configured credentials, then generates and returns a QR code as a base64 PNG
+// data URI. The user scans the QR to download their photo.
+func (a *App) UploadAndGetQR(imagePath string) (string, error) {
+	adminR2 := a.adminCfg.GetR2Config()
+	r2cfg := r2.Config{
+		AccountID:       adminR2.AccountID,
+		AccessKeyID:     adminR2.AccessKeyID,
+		SecretAccessKey: adminR2.SecretAccessKey,
+		BucketName:      adminR2.BucketName,
+		PublicBaseURL:   adminR2.PublicBaseURL,
+	}
+
+	// Upload to R2
+	publicURL, err := r2.UploadPhoto(r2cfg, imagePath)
+	if err != nil {
+		return "", fmt.Errorf("upload failed: %w", err)
+	}
+
+	// Generate QR code as raw PNG bytes
+	qrBytes, err := qrcode.Encode(publicURL, qrcode.High, 512)
+	if err != nil {
+		return "", fmt.Errorf("QR generation failed: %w", err)
+	}
+
+	b64 := base64.StdEncoding.EncodeToString(qrBytes)
+	return "data:image/png;base64," + b64, nil
 }
 
 // GetImageBase64 reads a local file and returns its base64 data URI so the frontend can display it.

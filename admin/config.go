@@ -10,12 +10,17 @@ import (
 
 // persistedState is used strictly for serializing to config.json
 type persistedState struct {
-	BypassPayment bool    `json:"bypassPayment"`
-	Frames        []Frame `json:"frames"`
-	CameraType    string  `json:"cameraType"` // "dslr" or "webcam"
-	WebcamID      string  `json:"webcamId"`
-	Fullscreen    bool    `json:"fullscreen"`
-	DSLRMode      string  `json:"dslrMode"` // "integrated" or "legacy"
+	BypassPayment   bool    `json:"bypassPayment"`
+	Frames          []Frame `json:"frames"`
+	CameraType      string  `json:"cameraType"` // "dslr" or "webcam"
+	WebcamID        string  `json:"webcamId"`
+	Fullscreen      bool    `json:"fullscreen"`
+	DSLRMode        string  `json:"dslrMode"` // "integrated" or "legacy"
+	R2AccountID     string  `json:"r2AccountId"`
+	R2AccessKeyID   string  `json:"r2AccessKeyId"`
+	R2SecretKey     string  `json:"r2SecretKey"`
+	R2BucketName    string  `json:"r2BucketName"`
+	R2PublicBaseURL string  `json:"r2PublicBaseUrl"`
 }
 
 // PhotoLayout defines the exact coordinates and size for a single photo in the composite.
@@ -41,6 +46,15 @@ type Frame struct {
 	Layouts  []PhotoLayout `json:"layouts"`  // Custom coordinates for each photo
 }
 
+// R2Config holds the Cloudflare R2 credentials for photo upload.
+type R2Config struct {
+	AccountID       string
+	AccessKeyID     string
+	SecretAccessKey string
+	BucketName      string
+	PublicBaseURL   string
+}
+
 // AdminConfig holds all admin-configurable settings, safe for concurrent access.
 type AdminConfig struct {
 	mu                 sync.RWMutex
@@ -53,6 +67,12 @@ type AdminConfig struct {
 	dslrMode           string // "integrated" (DSLRBridge) or "legacy" (DCC app)
 	availableCameras   []CameraDevice
 	onFullscreenChange func(bool)
+	// R2 credentials (admin-entered, never hardcoded)
+	r2AccountID     string
+	r2AccessKeyID   string
+	r2SecretKey     string
+	r2BucketName    string
+	r2PublicBaseURL string
 }
 
 // NewAdminConfig creates a config with sensible defaults and attempts to load existing data.
@@ -85,12 +105,17 @@ func (c *AdminConfig) ConfigFilePath() string {
 // This is called internally, assumes calling function already holds the c.mu.Lock()
 func (c *AdminConfig) Save() error {
 	state := persistedState{
-		BypassPayment: c.bypassPayment,
-		Frames:        make([]Frame, len(c.frames)),
-		CameraType:    c.cameraType,
-		WebcamID:      c.webcamID,
-		Fullscreen:    c.fullscreen,
-		DSLRMode:      c.dslrMode,
+		BypassPayment:   c.bypassPayment,
+		Frames:          make([]Frame, len(c.frames)),
+		CameraType:      c.cameraType,
+		WebcamID:        c.webcamID,
+		Fullscreen:      c.fullscreen,
+		DSLRMode:        c.dslrMode,
+		R2AccountID:     c.r2AccountID,
+		R2AccessKeyID:   c.r2AccessKeyID,
+		R2SecretKey:     c.r2SecretKey,
+		R2BucketName:    c.r2BucketName,
+		R2PublicBaseURL: c.r2PublicBaseURL,
 	}
 	copy(state.Frames, c.frames)
 
@@ -133,6 +158,11 @@ func (c *AdminConfig) Load() error {
 	if c.dslrMode == "" {
 		c.dslrMode = "integrated"
 	}
+	c.r2AccountID = state.R2AccountID
+	c.r2AccessKeyID = state.R2AccessKeyID
+	c.r2SecretKey = state.R2SecretKey
+	c.r2BucketName = state.R2BucketName
+	c.r2PublicBaseURL = state.R2PublicBaseURL
 
 	// Migrate old template names
 	for i := range c.frames {
@@ -307,4 +337,31 @@ func (c *AdminConfig) FramesDir() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.framesDir
+}
+
+// GetR2Config returns a snapshot of the current R2 credentials.
+func (c *AdminConfig) GetR2Config() R2Config {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return R2Config{
+		AccountID:       c.r2AccountID,
+		AccessKeyID:     c.r2AccessKeyID,
+		SecretAccessKey: c.r2SecretKey,
+		BucketName:      c.r2BucketName,
+		PublicBaseURL:   c.r2PublicBaseURL,
+	}
+}
+
+// SetR2Config saves the R2 credentials to config.
+func (c *AdminConfig) SetR2Config(cfg R2Config) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.r2AccountID = cfg.AccountID
+	c.r2AccessKeyID = cfg.AccessKeyID
+	c.r2SecretKey = cfg.SecretAccessKey
+	c.r2BucketName = cfg.BucketName
+	c.r2PublicBaseURL = cfg.PublicBaseURL
+	if err := c.Save(); err != nil {
+		log.Printf("[Admin Config] Failed to save after setting R2 config: %v", err)
+	}
 }

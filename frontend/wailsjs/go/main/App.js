@@ -54,10 +54,6 @@ export function SaveWebRTCImage(arg1, arg2, arg3) {
   return window['go']['main']['App']['SaveWebRTCImage'](arg1, arg2, arg3);
 }
 
-export function SendEmail(arg1, arg2) {
-  return window['go']['main']['App']['SendEmail'](arg1, arg2);
-}
-
 export function SetAvailableCameras(arg1) {
   return window['go']['main']['App']['SetAvailableCameras'](arg1);
 }
@@ -76,4 +72,8 @@ export function StopLiveView() {
 
 export function TriggerCapture(arg1, arg2) {
   return window['go']['main']['App']['TriggerCapture'](arg1, arg2);
+}
+
+export function UploadAndGetQR(arg1) {
+  return window['go']['main']['App']['UploadAndGetQR'](arg1);
 }

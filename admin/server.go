@@ -438,6 +438,34 @@ select:focus, input:focus {
     <div id="framesGrid" class="frames-grid"></div>
   </div>
 
+  <div class="card" id="r2Card">
+    <h2 class="card-title">Photo Sharing (Cloudflare R2)</h2>
+    <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1.5rem;">After a session, the app uploads the photo to your R2 bucket and shows a QR code so guests can scan and download their photo. Each admin enters their own Cloudflare credentials.</p>
+    <div class="settings-grid">
+      <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem;">
+        <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Account ID</label>
+        <input type="text" id="r2AccountId" placeholder="e.g. abc123def456..." style="width:100%;">
+      </div>
+      <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem;">
+        <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Access Key ID</label>
+        <input type="text" id="r2AccessKeyId" placeholder="R2 API token key ID..." style="width:100%;">
+      </div>
+      <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem;">
+        <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Secret Access Key</label>
+        <input type="password" id="r2SecretKey" placeholder="Leave blank to keep current..." style="width:100%;">
+      </div>
+      <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem;">
+        <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Bucket Name</label>
+        <input type="text" id="r2BucketName" placeholder="my-photobox-bucket" style="width:100%;">
+      </div>
+      <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem; grid-column: 1 / -1;">
+        <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Public Base URL</label>
+        <input type="text" id="r2PublicBaseUrl" placeholder="https://pub-xxx.r2.dev or https://photos.yourdomain.com" style="width:100%;">
+      </div>
+    </div>
+    <button class="btn" onclick="saveR2Config()" style="margin-top:1.5rem; width:auto; flex:none; padding:0.6rem 2rem;">Save R2 Settings</button>
+  </div>
+
 </div>
 
 <div id="status" class="status"></div>
@@ -545,6 +573,16 @@ function render() {
   } else {
     wRow.style.display = 'none';
   }
+
+  // Populate R2 fields (secret key is never shown for security)
+  var r2AccId = document.getElementById('r2AccountId');
+  var r2AkId = document.getElementById('r2AccessKeyId');
+  var r2Bkt = document.getElementById('r2BucketName');
+  var r2Url = document.getElementById('r2PublicBaseUrl');
+  if (r2AccId && !r2AccId.matches(':focus')) r2AccId.value = config.r2AccountId || '';
+  if (r2AkId && !r2AkId.matches(':focus')) r2AkId.value = config.r2AccessKeyId || '';
+  if (r2Bkt && !r2Bkt.matches(':focus')) r2Bkt.value = config.r2BucketName || '';
+  if (r2Url && !r2Url.matches(':focus')) r2Url.value = config.r2PublicBaseUrl || '';
   
   var sqInput = document.getElementById('frameSearch');
   var tfSelect = document.getElementById('frameTemplateFilter');
@@ -972,6 +1010,40 @@ function handleDrop(e, template) {
     handleUpload(input, template);
   }
 }
+
+async function saveR2Config() {
+  var accountId = document.getElementById('r2AccountId').value.trim();
+  var accessKeyId = document.getElementById('r2AccessKeyId').value.trim();
+  var secretKey = document.getElementById('r2SecretKey').value.trim();
+  var bucketName = document.getElementById('r2BucketName').value.trim();
+  var publicBaseUrl = document.getElementById('r2PublicBaseUrl').value.trim();
+  try {
+    var body = {
+      bypassPayment: config.bypassPayment,
+      cameraType: config.cameraType,
+      webcamId: config.webcamId,
+      fullscreen: config.fullscreen,
+      dslrMode: config.dslrMode,
+      r2AccountId: accountId,
+      r2AccessKeyId: accessKeyId,
+      r2BucketName: bucketName,
+      r2PublicBaseUrl: publicBaseUrl
+    };
+    if (secretKey) body.r2SecretKey = secretKey;
+    var res = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    flash('R2 settings saved!');
+    document.getElementById('r2SecretKey').value = ''; // clear after save
+    await load();
+  } catch (err) {
+    flash(err.message || 'Failed to save R2 settings', true);
+  }
+}
+
 </script>
 </body>
 </html>`
@@ -985,15 +1057,25 @@ type configResponse struct {
 	Fullscreen       bool           `json:"fullscreen"`
 	DSLRMode         string         `json:"dslrMode"`
 	AvailableCameras []CameraDevice `json:"availableCameras"`
+	R2AccountID      string         `json:"r2AccountId"`
+	R2AccessKeyID    string         `json:"r2AccessKeyId"`
+	R2BucketName     string         `json:"r2BucketName"`
+	R2PublicBaseURL  string         `json:"r2PublicBaseUrl"`
+	// Secret key is intentionally omitted from GET response for security
 }
 
 // configUpdateRequest is used for JSON deserialization of config updates.
 type configUpdateRequest struct {
-	BypassPayment bool   `json:"bypassPayment"`
-	CameraType    string `json:"cameraType"`
-	WebcamID      string `json:"webcamId"`
-	Fullscreen    bool   `json:"fullscreen"`
-	DSLRMode      string `json:"dslrMode"`
+	BypassPayment   bool   `json:"bypassPayment"`
+	CameraType      string `json:"cameraType"`
+	WebcamID        string `json:"webcamId"`
+	Fullscreen      bool   `json:"fullscreen"`
+	DSLRMode        string `json:"dslrMode"`
+	R2AccountID     string `json:"r2AccountId"`
+	R2AccessKeyID   string `json:"r2AccessKeyId"`
+	R2SecretKey     string `json:"r2SecretKey"`
+	R2BucketName    string `json:"r2BucketName"`
+	R2PublicBaseURL string `json:"r2PublicBaseUrl"`
 }
 
 // StartAdminServer launches the admin HTTP server on the given port.
@@ -1040,6 +1122,7 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 	mux.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
+			r2 := cfg.GetR2Config()
 			resp := configResponse{
 				BypassPayment:    cfg.GetBypassPayment(),
 				Frames:           cfg.GetFrames(),
@@ -1048,6 +1131,10 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 				Fullscreen:       cfg.GetFullscreen(),
 				DSLRMode:         cfg.GetDSLRMode(),
 				AvailableCameras: cfg.GetAvailableCameras(),
+				R2AccountID:      r2.AccountID,
+				R2AccessKeyID:    r2.AccessKeyID,
+				R2BucketName:     r2.BucketName,
+				R2PublicBaseURL:  r2.PublicBaseURL,
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(resp)
@@ -1066,6 +1153,16 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 			cfg.SetFullscreen(body.Fullscreen)
 			if body.DSLRMode == "legacy" || body.DSLRMode == "integrated" {
 				cfg.SetDSLRMode(body.DSLRMode)
+			}
+			// Save R2 config if any field is provided
+			if body.R2AccountID != "" || body.R2AccessKeyID != "" || body.R2SecretKey != "" || body.R2BucketName != "" || body.R2PublicBaseURL != "" {
+				cfg.SetR2Config(R2Config{
+					AccountID:       body.R2AccountID,
+					AccessKeyID:     body.R2AccessKeyID,
+					SecretAccessKey: body.R2SecretKey,
+					BucketName:      body.R2BucketName,
+					PublicBaseURL:   body.R2PublicBaseURL,
+				})
 			}
 			w.WriteHeader(http.StatusOK)
 

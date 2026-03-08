@@ -22,6 +22,10 @@ export function GetFrames() {
   return window['go']['main']['App']['GetFrames']();
 }
 
+export function GetHiddenTemplates() {
+  return window['go']['main']['App']['GetHiddenTemplates']();
+}
+
 export function GetImageBase64(arg1) {
   return window['go']['main']['App']['GetImageBase64'](arg1);
 }

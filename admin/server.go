@@ -3,12 +3,15 @@ package admin
 import (
 	"encoding/json"
 	"fmt"
-	"io"
+	"image"
+	"image/png"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"golang.org/x/image/draw"
 )
 
 // adminPage is the self-contained admin HTML dashboard with drag-drop.
@@ -576,30 +579,48 @@ select:focus, input:focus {
     <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1.5rem;">Upload transparent PNG overlays for the photobooth. The system will automatically detect the template type based on the drop zone.</p>
     
     <div class="drop-zones">
-      <div class="drop-zone" id="dz1" ondrop="handleDrop(event, '3strip_2x6')" ondragover="event.preventDefault()">
-        <div class="dz-icon">🎞️</div>
-        <h3 class="dz-title">Photostrip (2x6)</h3>
-        <p class="dz-desc">Vertical classic strip format</p>
-        <span class="dz-req">600 × 1800 px PNG</span>
-        <input type="file" accept=".png" onchange="handleUpload(this, '3strip_2x6')">
-        <div class="progress-bar" id="pb1"></div>
+      <div style="display:flex; flex-direction:column; gap:0.5rem; align-items:center;">
+        <div class="drop-zone" id="dz1" ondrop="handleDrop(event, '3strip_2x6')" ondragover="event.preventDefault()">
+          <div class="dz-icon">🎞️</div>
+          <h3 class="dz-title">Photostrip (2x6)</h3>
+          <p class="dz-desc">Vertical classic strip format</p>
+          <span class="dz-req">600 × 1800 px PNG</span>
+          <input type="file" accept=".png" onchange="handleUpload(this, '3strip_2x6')">
+          <div class="progress-bar" id="pb1"></div>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.5rem;">
+          <div class="switch on" id="toggle_3strip_2x6" onclick="toggleTemplateVisibility('3strip_2x6')"></div>
+          <span style="font-size:0.85rem; color:var(--text-muted)">Show on Front App</span>
+        </div>
       </div>
 
-      <div class="drop-zone" id="dz3" ondrop="handleDrop(event, '6strip_4x6')" ondragover="event.preventDefault()">
-        <div class="dz-icon">🎞️🎞️</div>
-        <h3 class="dz-title">Double Strip (4x6)</h3>
-        <p class="dz-desc">Two side-by-side vertical strips</p>
-        <span class="dz-req">1200 × 1800 px PNG</span>
-        <input type="file" accept=".png" onchange="handleUpload(this, '6strip_4x6')">
-        <div class="progress-bar" id="pb3"></div>
+      <div style="display:flex; flex-direction:column; gap:0.5rem; align-items:center;">
+        <div class="drop-zone" id="dz3" ondrop="handleDrop(event, '6strip_4x6')" ondragover="event.preventDefault()">
+          <div class="dz-icon">🎞️🎞️</div>
+          <h3 class="dz-title">Double Strip (4x6)</h3>
+          <p class="dz-desc">Two side-by-side vertical strips</p>
+          <span class="dz-req">1200 × 1800 px PNG</span>
+          <input type="file" accept=".png" onchange="handleUpload(this, '6strip_4x6')">
+          <div class="progress-bar" id="pb3"></div>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.5rem;">
+          <div class="switch on" id="toggle_6strip_4x6" onclick="toggleTemplateVisibility('6strip_4x6')"></div>
+          <span style="font-size:0.85rem; color:var(--text-muted)">Show on Front App</span>
+        </div>
       </div>
 
-      <div class="drop-zone" id="dz2" ondrop="handleDrop(event, '4postcard_4x6')" ondragover="event.preventDefault()">
-        <h3 class="dz-title">Postcard (4x6)</h3>
-        <p class="dz-desc">2x2 grid landscape format</p>
-        <span class="dz-req">1200 × 1800 px PNG</span>
-        <input type="file" accept=".png" onchange="handleUpload(this, '4postcard_4x6')">
-        <div class="progress-bar" id="pb2"></div>
+      <div style="display:flex; flex-direction:column; gap:0.5rem; align-items:center;">
+        <div class="drop-zone" id="dz2" ondrop="handleDrop(event, '4postcard_4x6')" ondragover="event.preventDefault()">
+          <h3 class="dz-title">Postcard (4x6)</h3>
+          <p class="dz-desc">2x2 grid landscape format</p>
+          <span class="dz-req">1200 × 1800 px PNG</span>
+          <input type="file" accept=".png" onchange="handleUpload(this, '4postcard_4x6')">
+          <div class="progress-bar" id="pb2"></div>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.5rem;">
+          <div class="switch on" id="toggle_4postcard_4x6" onclick="toggleTemplateVisibility('4postcard_4x6')"></div>
+          <span style="font-size:0.85rem; color:var(--text-muted)">Show on Front App</span>
+        </div>
       </div>
     </div>
   </div>
@@ -655,7 +676,7 @@ select:focus, input:focus {
 </div>
 
 <script>
-let config = { bypassPayment: false, fullscreen: false, frames: [] };
+let config = { bypassPayment: false, fullscreen: false, frames: [], hiddenTemplates: [] };
 let lastConfigJson = "";
 
 async function load() {
@@ -671,10 +692,37 @@ async function updateCameraSettings() {
   await fetch('/api/config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ bypassPayment: config.bypassPayment, cameraType: config.cameraType, webcamId: config.webcamId, fullscreen: config.fullscreen, dslrMode: config.dslrMode })
+    body: JSON.stringify({ bypassPayment: config.bypassPayment, cameraType: config.cameraType, webcamId: config.webcamId, fullscreen: config.fullscreen, dslrMode: config.dslrMode, hiddenTemplates: config.hiddenTemplates })
   });
   render();
   flash('Camera settings saved — restart app to apply DSLR driver change');
+}
+
+async function toggleTemplateVisibility(templateId) {
+  if (!config.hiddenTemplates) config.hiddenTemplates = [];
+  
+  if (config.hiddenTemplates.includes(templateId)) {
+    // Reveal it
+    config.hiddenTemplates = config.hiddenTemplates.filter(t => t !== templateId);
+  } else {
+    // Hide it
+    config.hiddenTemplates.push(templateId);
+  }
+
+  await fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      bypassPayment: config.bypassPayment, 
+      cameraType: config.cameraType, 
+      webcamId: config.webcamId, 
+      fullscreen: config.fullscreen, 
+      dslrMode: config.dslrMode,
+      hiddenTemplates: config.hiddenTemplates
+    })
+  });
+  render();
+  flash('Template visibility updated');
 }
 
 function render() {
@@ -702,6 +750,20 @@ function render() {
   } else {
     ft.classList.remove('on');
   }
+
+  // Update Template Visibility Toggles
+  const templateIds = ['3strip_2x6', '6strip_4x6', '4postcard_4x6'];
+  const hidden = config.hiddenTemplates || [];
+  templateIds.forEach(id => {
+    const el = document.getElementById('toggle_' + id);
+    if (el) {
+      if (hidden.includes(id)) {
+        el.classList.remove('on');
+      } else {
+        el.classList.add('on');
+      }
+    }
+  });
 
   const cType = document.getElementById('cameraTypeSelect');
   cType.value = config.cameraType || 'dslr';
@@ -787,7 +849,7 @@ async function toggleFullscreen() {
   await fetch('/api/config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ bypassPayment: config.bypassPayment, cameraType: config.cameraType, webcamId: config.webcamId, fullscreen: config.fullscreen, dslrMode: config.dslrMode })
+    body: JSON.stringify({ bypassPayment: config.bypassPayment, cameraType: config.cameraType, webcamId: config.webcamId, fullscreen: config.fullscreen, dslrMode: config.dslrMode, hiddenTemplates: config.hiddenTemplates })
   });
   render();
   flash('Fullscreen ' + (config.fullscreen ? 'enabled' : 'disabled'));
@@ -798,7 +860,7 @@ async function toggleBypass() {
   await fetch('/api/config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ bypassPayment: config.bypassPayment, cameraType: config.cameraType, webcamId: config.webcamId, dslrMode: config.dslrMode })
+    body: JSON.stringify({ bypassPayment: config.bypassPayment, cameraType: config.cameraType, webcamId: config.webcamId, dslrMode: config.dslrMode, hiddenTemplates: config.hiddenTemplates })
   });
   render();
   flash('Payment bypass ' + (config.bypassPayment ? 'enabled' : 'disabled'));
@@ -1241,6 +1303,7 @@ type configResponse struct {
 	Fullscreen       bool           `json:"fullscreen"`
 	DSLRMode         string         `json:"dslrMode"`
 	AvailableCameras []CameraDevice `json:"availableCameras"`
+	HiddenTemplates  []string       `json:"hiddenTemplates"`
 	R2AccountID      string         `json:"r2AccountId"`
 	R2AccessKeyID    string         `json:"r2AccessKeyId"`
 	R2BucketName     string         `json:"r2BucketName"`
@@ -1250,16 +1313,17 @@ type configResponse struct {
 
 // configUpdateRequest is used for JSON deserialization of config updates.
 type configUpdateRequest struct {
-	BypassPayment   bool   `json:"bypassPayment"`
-	CameraType      string `json:"cameraType"`
-	WebcamID        string `json:"webcamId"`
-	Fullscreen      bool   `json:"fullscreen"`
-	DSLRMode        string `json:"dslrMode"`
-	R2AccountID     string `json:"r2AccountId"`
-	R2AccessKeyID   string `json:"r2AccessKeyId"`
-	R2SecretKey     string `json:"r2SecretKey"`
-	R2BucketName    string `json:"r2BucketName"`
-	R2PublicBaseURL string `json:"r2PublicBaseUrl"`
+	BypassPayment   bool     `json:"bypassPayment"`
+	CameraType      string   `json:"cameraType"`
+	WebcamID        string   `json:"webcamId"`
+	Fullscreen      bool     `json:"fullscreen"`
+	DSLRMode        string   `json:"dslrMode"`
+	HiddenTemplates []string `json:"hiddenTemplates"`
+	R2AccountID     string   `json:"r2AccountId"`
+	R2AccessKeyID   string   `json:"r2AccessKeyId"`
+	R2SecretKey     string   `json:"r2SecretKey"`
+	R2BucketName    string   `json:"r2BucketName"`
+	R2PublicBaseURL string   `json:"r2PublicBaseUrl"`
 }
 
 // StartAdminServer launches the admin HTTP server on the given port.
@@ -1315,6 +1379,7 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 				Fullscreen:       cfg.GetFullscreen(),
 				DSLRMode:         cfg.GetDSLRMode(),
 				AvailableCameras: cfg.GetAvailableCameras(),
+				HiddenTemplates:  cfg.GetHiddenTemplates(),
 				R2AccountID:      r2.AccountID,
 				R2AccessKeyID:    r2.AccessKeyID,
 				R2BucketName:     r2.BucketName,
@@ -1337,6 +1402,9 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 			cfg.SetFullscreen(body.Fullscreen)
 			if body.DSLRMode == "legacy" || body.DSLRMode == "integrated" {
 				cfg.SetDSLRMode(body.DSLRMode)
+			}
+			if body.HiddenTemplates != nil {
+				cfg.SetHiddenTemplates(body.HiddenTemplates)
 			}
 			// Save R2 config if any field is provided
 			if body.R2AccountID != "" || body.R2AccessKeyID != "" || body.R2SecretKey != "" || body.R2BucketName != "" || body.R2PublicBaseURL != "" {
@@ -1401,7 +1469,56 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 			return
 		}
 
-		// Save the file
+		// Decode the uploaded image to validate dimensions and scale if necessary
+		img, err := png.Decode(file)
+		if err != nil {
+			http.Error(w, "Failed to decode PNG: "+err.Error(), 400)
+			return
+		}
+
+		// Determine target dimensions based on template
+		var targetW, targetH int
+		switch template {
+		case "3strip_2x6":
+			targetW, targetH = 600, 1800
+		case "6strip_4x6", "4postcard_4x6":
+			targetW, targetH = 1200, 1800
+		default:
+			http.Error(w, "Unknown template type", 400)
+			return
+		}
+
+		bounds := img.Bounds()
+		srcW, srcH := bounds.Dx(), bounds.Dy()
+
+		// Validate aspect ratio (with a tiny mathematical tolerance for rounding)
+		expectedRatio := float64(targetW) / float64(targetH)
+		actualRatio := float64(srcW) / float64(srcH)
+		tolerance := 0.01
+
+		if (actualRatio < expectedRatio-tolerance) || (actualRatio > expectedRatio+tolerance) {
+			errMsg := fmt.Sprintf("Invalid aspect ratio. Uploaded image is %dx%d. Expected ratio for this template is %d:%d.", srcW, srcH, targetW/600, targetH/600)
+			http.Error(w, errMsg, 400)
+			return
+		}
+
+		// Validate minimum resolution
+		if srcW < targetW || srcH < targetH {
+			errMsg := fmt.Sprintf("Resolution too low. Uploaded image is %dx%d. Must be at least %dx%d pixels.", srcW, srcH, targetW, targetH)
+			http.Error(w, errMsg, 400)
+			return
+		}
+
+		var finalImg image.Image = img
+
+		// Downscale if the image is larger than the target dimensions
+		if srcW > targetW || srcH > targetH {
+			scaled := image.NewRGBA(image.Rect(0, 0, targetW, targetH))
+			draw.CatmullRom.Scale(scaled, scaled.Bounds(), img, bounds, draw.Over, nil)
+			finalImg = scaled
+		}
+
+		// Save the finalized image
 		destPath := filepath.Join(cfg.FramesDir(), fmt.Sprintf("%s.png", id))
 		destFile, err := os.Create(destPath)
 		if err != nil {
@@ -1410,8 +1527,8 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 		}
 		defer destFile.Close()
 
-		if _, err := io.Copy(destFile, file); err != nil {
-			http.Error(w, "Failed to write file", 500)
+		if err := png.Encode(destFile, finalImg); err != nil {
+			http.Error(w, "Failed to encode and save scaled file", 500)
 			return
 		}
 

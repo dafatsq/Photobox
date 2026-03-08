@@ -10,17 +10,18 @@ import (
 
 // persistedState is used strictly for serializing to config.json
 type persistedState struct {
-	BypassPayment   bool    `json:"bypassPayment"`
-	Frames          []Frame `json:"frames"`
-	CameraType      string  `json:"cameraType"` // "dslr" or "webcam"
-	WebcamID        string  `json:"webcamId"`
-	Fullscreen      bool    `json:"fullscreen"`
-	DSLRMode        string  `json:"dslrMode"` // "integrated" or "legacy"
-	R2AccountID     string  `json:"r2AccountId"`
-	R2AccessKeyID   string  `json:"r2AccessKeyId"`
-	R2SecretKey     string  `json:"r2SecretKey"`
-	R2BucketName    string  `json:"r2BucketName"`
-	R2PublicBaseURL string  `json:"r2PublicBaseUrl"`
+	BypassPayment   bool     `json:"bypassPayment"`
+	Frames          []Frame  `json:"frames"`
+	CameraType      string   `json:"cameraType"` // "dslr" or "webcam"
+	WebcamID        string   `json:"webcamId"`
+	Fullscreen      bool     `json:"fullscreen"`
+	DSLRMode        string   `json:"dslrMode"` // "integrated" or "legacy"
+	HiddenTemplates []string `json:"hiddenTemplates"`
+	R2AccountID     string   `json:"r2AccountId"`
+	R2AccessKeyID   string   `json:"r2AccessKeyId"`
+	R2SecretKey     string   `json:"r2SecretKey"`
+	R2BucketName    string   `json:"r2BucketName"`
+	R2PublicBaseURL string   `json:"r2PublicBaseUrl"`
 }
 
 // PhotoLayout defines the exact coordinates and size for a single photo in the composite.
@@ -73,6 +74,7 @@ type AdminConfig struct {
 	r2SecretKey     string
 	r2BucketName    string
 	r2PublicBaseURL string
+	hiddenTemplates []string
 }
 
 // NewAdminConfig creates a config with sensible defaults and attempts to load existing data.
@@ -86,6 +88,7 @@ func NewAdminConfig(framesDir string) *AdminConfig {
 		fullscreen:       false,
 		dslrMode:         "integrated",
 		availableCameras: []CameraDevice{},
+		hiddenTemplates:  []string{},
 	}
 
 	// Attempt to load existing config on boot
@@ -111,6 +114,7 @@ func (c *AdminConfig) Save() error {
 		WebcamID:        c.webcamID,
 		Fullscreen:      c.fullscreen,
 		DSLRMode:        c.dslrMode,
+		HiddenTemplates: c.hiddenTemplates,
 		R2AccountID:     c.r2AccountID,
 		R2AccessKeyID:   c.r2AccessKeyID,
 		R2SecretKey:     c.r2SecretKey,
@@ -158,6 +162,12 @@ func (c *AdminConfig) Load() error {
 	if c.dslrMode == "" {
 		c.dslrMode = "integrated"
 	}
+	if state.HiddenTemplates != nil {
+		c.hiddenTemplates = state.HiddenTemplates
+	} else {
+		c.hiddenTemplates = []string{}
+	}
+
 	c.r2AccountID = state.R2AccountID
 	c.r2AccessKeyID = state.R2AccessKeyID
 	c.r2SecretKey = state.R2SecretKey
@@ -204,19 +214,38 @@ func (c *AdminConfig) GetCameraType() string {
 	return c.cameraType
 }
 
+// GetDSLRMode returns the selected DSLR integration mode.
 func (c *AdminConfig) GetDSLRMode() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.dslrMode
 }
 
-func (c *AdminConfig) SetDSLRMode(val string) {
+// SetDSLRMode saves the selected DSLR integration mode.
+func (c *AdminConfig) SetDSLRMode(mode string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.dslrMode = val
-	if err := c.Save(); err != nil {
-		log.Printf("[Admin Config] Failed to save after setting dslrMode: %v", err)
-	}
+	c.dslrMode = mode
+	return c.Save()
+}
+
+// GetHiddenTemplates returns the list of templates to hide from the frontend.
+func (c *AdminConfig) GetHiddenTemplates() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	// Return a copy to prevent mutation
+	ret := make([]string, len(c.hiddenTemplates))
+	copy(ret, c.hiddenTemplates)
+	return ret
+}
+
+// SetHiddenTemplates updates the list of hidden templates.
+func (c *AdminConfig) SetHiddenTemplates(hidden []string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.hiddenTemplates = make([]string, len(hidden))
+	copy(c.hiddenTemplates, hidden)
+	return c.Save()
 }
 
 func (c *AdminConfig) SetCameraType(val string) {

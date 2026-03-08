@@ -98,6 +98,11 @@ func (a *App) GetFrames() []admin.Frame {
 	return a.adminCfg.GetFrames()
 }
 
+// GetHiddenTemplates returns the list of templates to hide from the frontend.
+func (a *App) GetHiddenTemplates() []string {
+	return a.adminCfg.GetHiddenTemplates()
+}
+
 // GetCameraMode returns the configured camera type ('dslr' or 'webcam')
 func (a *App) GetCameraMode() string {
 	return a.adminCfg.GetCameraType()

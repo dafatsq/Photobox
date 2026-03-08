@@ -34,7 +34,10 @@ type WinCamera struct {
 
 func NewWinCamera() *WinCamera {
 	cam := &WinCamera{
-		client: &http.Client{Timeout: bridgeTimeout},
+		client: &http.Client{
+			Timeout:   bridgeTimeout,
+			Transport: &http.Transport{DisableKeepAlives: true},
+		},
 	}
 	return cam
 }
@@ -102,7 +105,10 @@ func (w *WinCamera) StopBridge() {
 
 	println("[DSLRBridge] Shutting down bridge...")
 	// Send shutdown command via HTTP
-	client := &http.Client{Timeout: 2 * time.Second}
+	client := &http.Client{
+		Timeout:   2 * time.Second,
+		Transport: &http.Transport{DisableKeepAlives: true},
+	}
 	resp, err := client.Get(bridgeBaseURL + "/shutdown")
 	if err == nil {
 		io.ReadAll(resp.Body)
@@ -152,7 +158,10 @@ func (w *WinCamera) findBridgeExe() string {
 
 // pingBridge checks if the bridge HTTP server is responding.
 func (w *WinCamera) pingBridge() bool {
-	client := &http.Client{Timeout: 1 * time.Second}
+	client := &http.Client{
+		Timeout:   1 * time.Second,
+		Transport: &http.Transport{DisableKeepAlives: true},
+	}
 	resp, err := client.Get(bridgeBaseURL + "/ping")
 	if err != nil {
 		return false
@@ -223,7 +232,10 @@ func (w *WinCamera) StartLiveView() error {
 	}
 
 	// Use a short timeout — StartLiveView can block on older cameras
-	lvClient := &http.Client{Timeout: 5 * time.Second}
+	lvClient := &http.Client{
+		Timeout:   5 * time.Second,
+		Transport: &http.Transport{DisableKeepAlives: true},
+	}
 	resp, err := lvClient.Get(bridgeBaseURL + "/liveview/start")
 	if err != nil {
 		println("[DSLRBridge] StartLiveView: request failed:", err.Error())
@@ -305,8 +317,11 @@ func (w *WinCamera) IsCameraConnected() bool {
 		return false
 	}
 
-	client := &http.Client{Timeout: 6 * time.Second} // /connect takes at least 1.5s
-	maxAttempts := 4                                 // We wait in chunks, so 4 attempts is enough
+	client := &http.Client{
+		Timeout:   6 * time.Second,
+		Transport: &http.Transport{DisableKeepAlives: true},
+	} // /connect takes at least 1.5s
+	maxAttempts := 4 // We wait in chunks, so 4 attempts is enough
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		// 1. Initial ping check

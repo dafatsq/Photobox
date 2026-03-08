@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore, TemplateType } from '../store/appStore';
+import { GetHiddenTemplates } from '../../wailsjs/go/main/App';
 import './TemplateScreen.css';
 
 const templates: { id: TemplateType; label: string; description: string; layout: string }[] = [
@@ -29,6 +30,19 @@ const TemplateScreen: React.FC = () => {
     const goToPayment = useAppStore((s) => s.goToPayment);
 
     const [showConfirmPopup, setShowConfirmPopup] = useState(false);
+    const [hiddenTemplates, setHiddenTemplates] = useState<string[]>([]);
+
+    useEffect(() => {
+        const loadHidden = async () => {
+            try {
+                const hidden = await GetHiddenTemplates();
+                if (hidden) setHiddenTemplates(hidden);
+            } catch (err) {
+                console.error("Failed to load hidden templates:", err);
+            }
+        };
+        loadHidden();
+    }, []);
 
     const handleSelect = (id: TemplateType) => {
         selectTemplate(id);
@@ -59,7 +73,7 @@ const TemplateScreen: React.FC = () => {
             </div>
 
             <div className="template-grid">
-                {templates.map((t) => (
+                {templates.filter(t => !hiddenTemplates.includes(t.id)).map((t) => (
                     <button
                         key={t.id}
                         className="template-card"

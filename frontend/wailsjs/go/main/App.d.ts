@@ -13,6 +13,8 @@ export function GetFrameConfig(arg1:string):Promise<main.FrontendFrameConfig>;
 
 export function GetFrames():Promise<Array<admin.Frame>>;
 
+export function GetHiddenTemplates():Promise<Array<string>>;
+
 export function GetImageBase64(arg1:string):Promise<string>;
 
 export function GetLiveViewURL():Promise<string>;

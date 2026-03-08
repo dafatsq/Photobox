@@ -57,6 +57,7 @@ const TemplateScreen: React.FC = () => {
                 <h2 className="template-title">Choose Your Layout</h2>
                 <p className="template-subtitle">Select a photo template to get started</p>
             </div>
+
             <div className="template-grid">
                 {templates.map((t) => (
                     <button

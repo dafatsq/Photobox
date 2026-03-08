@@ -305,25 +305,42 @@ func (w *WinCamera) IsCameraConnected() bool {
 		return false
 	}
 
-	client := &http.Client{Timeout: 2 * time.Second}
-	maxAttempts := 8
+	client := &http.Client{Timeout: 6 * time.Second} // /connect takes at least 1.5s
+	maxAttempts := 4                                 // We wait in chunks, so 4 attempts is enough
+
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		// 1. Initial ping check
 		resp, err := client.Get(bridgeBaseURL + "/ping")
+		var isConnected bool
+
 		if err == nil {
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
-
 			var result struct {
 				Connected bool `json:"connected"`
 			}
-			if err := json.Unmarshal(body, &result); err == nil && result.Connected {
-				println("[DSLRBridge] Camera connected (attempt", attempt, ")")
-				return true
+			if json.Unmarshal(body, &result) == nil {
+				isConnected = result.Connected
 			}
 		}
+
+		if isConnected {
+			println("[DSLRBridge] Camera connected (attempt", attempt, ")")
+			return true
+		}
+
+		// 2. If we reach here, bridge is running but camera is logically missing
+		println("[DSLRBridge] Camera missing, forcing USB rescan (attempt", attempt, "/", maxAttempts, ")...")
+
+		// 3. Trigger /connect rescan in the C# bridge
+		cResp, cerr := client.Get(bridgeBaseURL + "/connect")
+		if cerr == nil {
+			io.ReadAll(cResp.Body)
+			cResp.Body.Close()
+		}
+
 		if attempt < maxAttempts {
-			println("[DSLRBridge] Camera not ready yet, retrying...", attempt, "/", maxAttempts)
-			time.Sleep(800 * time.Millisecond)
+			time.Sleep(1 * time.Second)
 		}
 	}
 	println("[DSLRBridge] Camera not detected after all retries")

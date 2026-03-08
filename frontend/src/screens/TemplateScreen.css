@@ -13,6 +13,22 @@
     text-align: center;
 }
 
+.template-camera-error {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #f87171;
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: 'Outfit', sans-serif;
+    max-width: 480px;
+    text-align: left;
+    animation: fadeIn 0.2s ease;
+}
+
 .template-title {
     font-family: 'Outfit', sans-serif;
     font-size: 2.5rem;

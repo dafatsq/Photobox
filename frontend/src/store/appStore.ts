@@ -10,7 +10,7 @@ export type AppState =
   | 'done'
   | 'error';
 
-export type TemplateType = '3strip_2x6' | '4postcard_4x6';
+export type TemplateType = '3strip_2x6' | '4postcard_4x6' | '6strip_4x6';
 
 interface AppStore {
   // Current state in the flow
@@ -58,6 +58,7 @@ function generateSessionId(): string {
 const SHOT_COUNTS: Record<string, number> = {
   '3strip_2x6': 3,
   '4postcard_4x6': 4,
+  '6strip_4x6': 6,
 };
 
 function getShotCount(template: TemplateType): number {

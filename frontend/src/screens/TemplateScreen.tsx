@@ -10,6 +10,12 @@ const templates: { id: TemplateType; label: string; description: string; layout:
         layout: '2×6"',
     },
     {
+        id: '6strip_4x6',
+        label: 'Double Strip',
+        description: '6 photos in a double vertical strip',
+        layout: '4×6"',
+    },
+    {
         id: '4postcard_4x6',
         label: 'Postcard',
         description: '4 photos in a beautiful grid',
@@ -62,6 +68,15 @@ const TemplateScreen: React.FC = () => {
                             <div className={`template-preview-layout ${t.id}`}>
                                 {t.id === '3strip_2x6' ? (
                                     <>
+                                        <div className="preview-cell" />
+                                        <div className="preview-cell" />
+                                        <div className="preview-cell" />
+                                    </>
+                                ) : t.id === '6strip_4x6' ? (
+                                    <>
+                                        <div className="preview-cell" />
+                                        <div className="preview-cell" />
+                                        <div className="preview-cell" />
                                         <div className="preview-cell" />
                                         <div className="preview-cell" />
                                         <div className="preview-cell" />

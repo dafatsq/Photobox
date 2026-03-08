@@ -293,8 +293,9 @@ const CaptureScreen: React.FC = () => {
     const baseHeight = 1800;
 
     // We scale the display workspace based on window height so it fits on screen
-    const workspaceHeightMap = {
+    const workspaceHeightMap: Record<string, string> = {
         '3strip_2x6': '80vh',
+        '6strip_4x6': '80vh',
         '4postcard_4x6': '70vh'
     };
     const workspaceHeight = selectedTemplate ? workspaceHeightMap[selectedTemplate] : '80vh';
@@ -458,12 +459,28 @@ const CaptureScreen: React.FC = () => {
                                 }
                             }}
                         >
-                            {!selectedFrame ? 'Select a Frame...' : ready ? 'Start Session! 📸' : 'Warming up camera...'}
+                            {!selectedFrame ? 'Select a Frame...' : ready ? (
+                                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                    Start Session!
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20">
+                                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                                        <circle cx="12" cy="13" r="4"></circle>
+                                    </svg>
+                                </span>
+                            ) : 'Warming up camera...'}
                         </button>
                     ) : reviewMode ? (
                         <div className="review-controls">
                             <button className="capture-action-btn" onClick={toggleAllMirrors} title="Flip all photos">
-                                🪞 Flip All
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+                                        <polyline points="15 3 21 3 21 9"></polyline>
+                                        <polyline points="9 21 3 21 3 15"></polyline>
+                                        <line x1="21" y1="3" x2="14" y2="10"></line>
+                                        <line x1="3" y1="21" x2="10" y2="14"></line>
+                                    </svg>
+                                    Flip All
+                                </span>
                             </button>
                             <div className="review-timer">
                                 Finalizing in <span>{reviewTimeLeft}s</span>
@@ -472,7 +489,12 @@ const CaptureScreen: React.FC = () => {
                                 className="capture-start-btn"
                                 onClick={() => setReviewTimeLeft(0)}
                             >
-                                Confirm & Print! ✨
+                                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                    Confirm & Print!
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20">
+                                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                                    </svg>
+                                </span>
                             </button>
                             <p className="review-hint">Click a photo to retake it</p>
                         </div>
@@ -480,7 +502,15 @@ const CaptureScreen: React.FC = () => {
                         ready && !frozen && !capturing && countdown === null && currentSequence < totalShots && (
                             <>
                                 <button className="capture-action-btn" onClick={() => setIsMirrored(!isMirrored)}>
-                                    {isMirrored ? '🪞 Unmirror' : '🪞 Mirror'}
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+                                            <polyline points="15 3 21 3 21 9"></polyline>
+                                            <polyline points="9 21 3 21 3 15"></polyline>
+                                            <line x1="21" y1="3" x2="14" y2="10"></line>
+                                            <line x1="3" y1="21" x2="10" y2="14"></line>
+                                        </svg>
+                                        {isMirrored ? 'Unmirror' : 'Mirror'}
+                                    </span>
                                 </button>
 
                                 <button className="capture-action-btn" onClick={() => {
@@ -488,7 +518,13 @@ const CaptureScreen: React.FC = () => {
                                     else if (shutterDelay === 3) setShutterDelay(5);
                                     else setShutterDelay(0);
                                 }}>
-                                    ⏱️ {shutterDelay === 0 ? 'Off' : `${shutterDelay}s`}
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+                                            <circle cx="12" cy="12" r="10"></circle>
+                                            <polyline points="12 6 12 12 16 14"></polyline>
+                                        </svg>
+                                        {shutterDelay === 0 ? 'Off' : `${shutterDelay}s`}
+                                    </span>
                                 </button>
 
                                 <button className="capture-button" onClick={handleCapture}>

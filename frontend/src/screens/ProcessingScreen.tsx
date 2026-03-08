@@ -65,10 +65,37 @@ const ProcessingScreen: React.FC = () => {
         <div className="processing-screen">
             <div className="processing-card">
                 <div className="processing-icon">
-                    {stage === 'compositing' && '🎨'}
-                    {stage === 'printing' && '🖨️'}
-                    {stage === 'qr' && '📱'}
-                    {stage === 'complete' && '✅'}
+                    {stage === 'compositing' && (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="2" y1="12" x2="22" y2="12" />
+                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                        </svg>
+                    )}
+                    {stage === 'printing' && (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="6 9 6 2 18 2 18 9" />
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                            <rect x="6" y="14" width="12" height="8" />
+                        </svg>
+                    )}
+                    {stage === 'qr' && (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="3" width="7" height="7" />
+                            <rect x="14" y="3" width="7" height="7" />
+                            <rect x="3" y="14" width="7" height="7" />
+                            <line x1="14" y1="14" x2="14" y2="14" />
+                            <line x1="21" y1="14" x2="21" y2="14" />
+                            <line x1="14" y1="21" x2="21" y2="21" />
+                            <line x1="14" y1="17" x2="21" y2="17" />
+                        </svg>
+                    )}
+                    {stage === 'complete' && (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                            <polyline points="22 4 12 14.01 9 11.01" />
+                        </svg>
+                    )}
                 </div>
 
                 <h2 className="processing-title">
@@ -89,7 +116,15 @@ const ProcessingScreen: React.FC = () => {
                     <div className="qr-download">
                         <div className="qr-download-frame">
                             <div className="qr-download-placeholder">
-                                <span>📲</span>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="3" y="3" width="7" height="7" />
+                                    <rect x="14" y="3" width="7" height="7" />
+                                    <rect x="3" y="14" width="7" height="7" />
+                                    <line x1="14" y1="14" x2="17" y2="14" />
+                                    <line x1="21" y1="14" x2="21" y2="14" />
+                                    <line x1="21" y1="17" x2="21" y2="21" />
+                                    <line x1="17" y1="21" x2="21" y2="21" />
+                                </svg>
                                 <p>Scan QR to download</p>
                             </div>
                         </div>

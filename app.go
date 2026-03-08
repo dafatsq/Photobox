@@ -207,7 +207,7 @@ func flipHorizontal(img image.Image) image.Image {
 }
 
 // ProcessComposite combines captured images into a composite frame based on templateID and frameID.
-// Supported templates: "3strip_2x6" (4 photos in a vertical strip), "4postcard_4x6" (4 photos in a grid).
+// Supported templates: "3strip_2x6" (3 photos in a vertical strip), "6strip_4x6" (6 photos in double strip), "4postcard_4x6" (4 photos in a grid).
 func (a *App) ProcessComposite(images []string, mirrored []bool, templateID string, frameID string) (string, error) {
 	if len(images) == 0 {
 		return "", fmt.Errorf("no images provided")
@@ -291,6 +291,8 @@ func (a *App) ProcessComposite(images []string, mirrored []bool, templateID stri
 	switch templateID {
 	case "3strip_2x6":
 		compW, compH = 600, 1800
+	case "6strip_4x6":
+		compW, compH = 1200, 1800
 	case "4postcard_4x6":
 		compW, compH = 1200, 1800
 	default:
@@ -318,6 +320,18 @@ func (a *App) ProcessComposite(images []string, mirrored []bool, templateID stri
 			photoH := 1800 / len(srcImages)
 			for i, src := range srcImages {
 				destRect := image.Rect(0, i*photoH, photoW, (i+1)*photoH)
+				cropRect := centerCrop(src.Bounds(), photoW, photoH)
+				xdraw.CatmullRom.Scale(composite, destRect, src, cropRect, draw.Src, nil)
+			}
+
+		case "6strip_4x6":
+			// Two columns of 3 photos, each 600x400 (3:2 DSLR ratio)
+			photoW := 600
+			photoH := 400
+			for i, src := range srcImages {
+				col := i / 3 // 0 for first 3, 1 for last 3
+				row := i % 3
+				destRect := image.Rect(col*photoW, row*photoH, (col+1)*photoW, (row+1)*photoH)
 				cropRect := centerCrop(src.Bounds(), photoW, photoH)
 				xdraw.CatmullRom.Scale(composite, destRect, src, cropRect, draw.Src, nil)
 			}

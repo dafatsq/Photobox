@@ -308,8 +308,8 @@ select:focus, input:focus {
 .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 .input-group label { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.3rem; }
 .input-group input { padding: 0.4rem; font-size: 0.85rem; text-align: center; }
-.editor-canvas-wrap { flex: 1; position: relative; overflow: auto; background: #000; padding: 2rem; display: flex; justify-content: center; align-items: flex-start; }
-.editor-canvas { position: relative; background: transparent; transform-origin: top center; transition: zoom 0.1s; margin: 0 auto; }
+.editor-canvas-wrap { flex: 1; position: relative; overflow: auto; background: #000; padding: 2rem; }
+.editor-canvas { position: relative; background: transparent; margin: 0 auto; }
 .editor-canvas img { display: block; width: 100%; height: auto; pointer-events: none; }
 .canvas-box { position: absolute; border: 2px dashed rgba(99, 102, 241, 0.8); background: rgba(99, 102, 241, 0.15); display: flex; align-items: center; justify-content: center; font-weight: 700; color: rgba(255,255,255,0.6); font-size: 2rem; cursor: move; transition: border-color .2s, background .2s, color .2s; }
 .canvas-box:hover { border-color: #0ea5e9; background: rgba(14, 165, 233, 0.25); color: #fff; z-index: 10; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.2); }
@@ -453,6 +453,15 @@ select:focus, input:focus {
         <div class="progress-bar" id="pb1"></div>
       </div>
 
+      <div class="drop-zone" id="dz3" ondrop="handleDrop(event, '6strip_4x6')" ondragover="event.preventDefault()">
+        <div class="dz-icon">🎞️🎞️</div>
+        <h3 class="dz-title">Double Strip (4x6)</h3>
+        <p class="dz-desc">Two side-by-side vertical strips</p>
+        <span class="dz-req">1200 × 1800 px PNG</span>
+        <input type="file" accept=".png" onchange="handleUpload(this, '6strip_4x6')">
+        <div class="progress-bar" id="pb3"></div>
+      </div>
+
       <div class="drop-zone" id="dz2" ondrop="handleDrop(event, '4postcard_4x6')" ondragover="event.preventDefault()">
         <h3 class="dz-title">Postcard (4x6)</h3>
         <p class="dz-desc">2x2 grid landscape format</p>
@@ -471,6 +480,7 @@ select:focus, input:focus {
         <select id="frameTemplateFilter" style="width:180px; padding:0.4rem 0.8rem;" onchange="render()">
           <option value="all">All Types</option>
           <option value="3strip_2x6">Photostrip (2x6)</option>
+          <option value="6strip_4x6">Double Strip (4x6)</option>
           <option value="4postcard_4x6">Postcard (4x6)</option>
         </select>
       </div>
@@ -672,7 +682,8 @@ async function handleUpload(input, template) {
   }
 
   // Get progress bar element
-  const pbId = template === '3strip_2x6' ? 'pb1' : 'pb2';
+  const pbMap = { '3strip_2x6': 'pb1', '6strip_4x6': 'pb3', '4postcard_4x6': 'pb2' };
+  const pbId = pbMap[template] || 'pb1';
   const pb = document.getElementById(pbId);
   pb.style.width = '50%';
 
@@ -729,6 +740,8 @@ let activeFrameId = null;
 let activeLayouts = [];
 let activeTemplateScale = 1;
 let activeIndex = -1;
+let activeCanvasW = 600;
+let activeCanvasH = 1800;
 
 function openEditor(id) {
   const f = config.frames.find(x => x.id === id);
@@ -737,7 +750,8 @@ function openEditor(id) {
   // Deep copy layouts so we don't modify config until save
   activeLayouts = JSON.parse(JSON.stringify(f.layouts || []));
   
-  const expectedSlots = f.template === '3strip_2x6' ? 3 : 4;
+  const slotMap = { '3strip_2x6': 3, '6strip_4x6': 6, '4postcard_4x6': 4 };
+  const expectedSlots = slotMap[f.template] || 4;
   if (activeLayouts.length !== expectedSlots) {
     flash('Warning: Frame does not have exactly ' + expectedSlots + ' layouts defined.', true);
   }
@@ -751,23 +765,26 @@ function openEditor(id) {
   
   // Real dimensions
   let w = 600, h = 1800;
-  if (f.template === '4postcard_4x6') { w = 1200; h = 1800; }
+  if (f.template === '4postcard_4x6' || f.template === '6strip_4x6') { w = 1200; h = 1800; }
   
-  canvas.style.width = w + 'px';
-  canvas.style.height = h + 'px';
+  activeCanvasW = w;
+  activeCanvasH = h;
   
   document.getElementById('layoutModal').classList.add('show');
 
   // Need to wait until modal is visible so clientWidth isn't 0
   setTimeout(() => {
     const wrap = document.getElementById('canvasWrap');
-    // If clientWidth is valid, calculate fit. Provide a fallback if it's still weird.
-    let wrapW = wrap.clientWidth;
-    if (wrapW < 100) wrapW = window.innerWidth - 350; // fallback width minus sidebar
+    let wrapW = wrap.clientWidth - 60;
+    let wrapH = wrap.clientHeight - 60;
+    if (wrapW < 100) wrapW = window.innerWidth - 400;
+    if (wrapH < 100) wrapH = window.innerHeight - 200;
     
-    // Default strictly to 1.0 (100% size) or a math calculation, but 1.0 is safest for 600px widths
-    // on typical displays to ensure it's not microscopic.
-    activeTemplateScale = 1.0;
+    // Auto-fit: scale so the canvas fits within the viewport
+    const scaleW = wrapW / w;
+    const scaleH = wrapH / h;
+    activeTemplateScale = Math.min(scaleW, scaleH, 1.0);
+    activeTemplateScale = Math.max(0.15, Math.round(activeTemplateScale * 20) / 20);
     updateCanvasTransform();
   }, 50);
 
@@ -781,12 +798,14 @@ function closeEditor() {
 }
 
 function zoomCanvas(delta) {
-  activeTemplateScale = Math.max(0.25, Math.min(3.0, activeTemplateScale + delta));
+  activeTemplateScale = Math.max(0.15, Math.min(3.0, activeTemplateScale + delta));
   updateCanvasTransform();
 }
 
 function updateCanvasTransform() {
-  document.getElementById('canvas').style.zoom = activeTemplateScale;
+  const canvas = document.getElementById('canvas');
+  canvas.style.width = (activeCanvasW * activeTemplateScale) + 'px';
+  canvas.style.height = (activeCanvasH * activeTemplateScale) + 'px';
   document.getElementById('zoomIndicator').textContent = Math.round(activeTemplateScale * 100) + '%';
 }
 
@@ -811,6 +830,10 @@ function resetLayout(idx) {
   
   if (f.template === '3strip_2x6') {
     activeLayouts[idx] = { x: 0, y: 100 + (idx * 500), width: 600, height: 400 };
+  } else if (f.template === '6strip_4x6') {
+    const col = idx < 3 ? 0 : 1;
+    const row = idx % 3;
+    activeLayouts[idx] = { x: col * 600, y: 100 + (row * 500), width: 600, height: 400 };
   } else if (f.template === '4postcard_4x6') {
     const col = idx % 2;
     const row = Math.floor(idx / 2);
@@ -837,17 +860,21 @@ function updateVal(idx, key, val) {
 
 function renderCanvasOverlays() {
   const container = document.getElementById('canvasOverlays');
-  container.innerHTML = activeLayouts.map((lo, i) =>
-    '<div class="canvas-box" ' +
-         'style="left:' + lo.x + 'px; top:' + lo.y + 'px; width:' + lo.width + 'px; height:' + lo.height + 'px;" ' +
+  container.innerHTML = activeLayouts.map((lo, i) => {
+    const leftPct = (lo.x / activeCanvasW * 100);
+    const topPct = (lo.y / activeCanvasH * 100);
+    const widthPct = (lo.width / activeCanvasW * 100);
+    const heightPct = (lo.height / activeCanvasH * 100);
+    return '<div class="canvas-box" ' +
+         'style="left:' + leftPct + '%; top:' + topPct + '%; width:' + widthPct + '%; height:' + heightPct + '%;" ' +
          'data-idx="' + i + '">' +
       (i+1) +
       '<div class="resize-handle tl" data-idx="' + i + '" data-handle="tl"></div>' +
       '<div class="resize-handle tr" data-idx="' + i + '" data-handle="tr"></div>' +
       '<div class="resize-handle bl" data-idx="' + i + '" data-handle="bl"></div>' +
       '<div class="resize-handle br" data-idx="' + i + '" data-handle="br"></div>' +
-    '</div>'
-  ).join('');
+    '</div>';
+  }).join('');
 }
 
 // --- Drag & Drop / Resize / Pan Logic for Canvas ---
@@ -862,6 +889,16 @@ let panStartX, panStartY, panScrollLeft, panScrollTop;
 
 const canvasWrap = document.getElementById('canvasWrap');
 let activeHandle = null;
+
+// Intercept Ctrl+Scroll on the editor to prevent browser zoom
+// and use the app's own zoom instead, keeping frame and overlays in sync
+canvasWrap.addEventListener('wheel', (e) => {
+  if (e.ctrlKey) {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.05 : 0.05;
+    zoomCanvas(delta);
+  }
+}, { passive: false });
 
 canvasWrap.addEventListener('mousedown', (e) => {
   if (e.target.classList.contains('resize-handle')) {
@@ -967,13 +1004,13 @@ function onMouseMove(e) {
     }
   }
   
-  // Directly manipulate DOM elements for performance during drag instead of re-rendering innerHTML completely
+  // Directly manipulate DOM elements for performance during drag
   const box = document.querySelector('.canvas-box[data-idx="' + activeIndex + '"]');
   if (box) {
-    box.style.left = lo.x + 'px';
-    box.style.top = lo.y + 'px';
-    box.style.width = lo.width + 'px';
-    box.style.height = lo.height + 'px';
+    box.style.left = (lo.x / activeCanvasW * 100) + '%';
+    box.style.top = (lo.y / activeCanvasH * 100) + '%';
+    box.style.width = (lo.width / activeCanvasW * 100) + '%';
+    box.style.height = (lo.height / activeCanvasH * 100) + '%';
   }
   
   // Debounce sidebar input updates slightly to avoid destroying focus if user is typing
@@ -1015,7 +1052,8 @@ load();
 
 function handleDrop(e, template) {
   e.preventDefault();
-  const dz = document.getElementById(template === '3strip_2x6' ? 'dz1' : 'dz2');
+  const dzMap = { '3strip_2x6': 'dz1', '6strip_4x6': 'dz3', '4postcard_4x6': 'dz2' };
+  const dz = document.getElementById(dzMap[template] || 'dz1');
   dz.classList.remove('dragover');
   
   if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
@@ -1255,6 +1293,17 @@ func StartAdminServer(cfg *AdminConfig, port int) {
 				{X: 0, Y: 100, Width: 600, Height: 400},
 				{X: 0, Y: 600, Width: 600, Height: 400},
 				{X: 0, Y: 1100, Width: 600, Height: 400},
+			}
+		} else if template == "6strip_4x6" {
+			// 1200x1800, two columns of 3 photos each 600x400 (3:2 DSLR ratio).
+			// 3 photos × 400px height = 1200px, centered in 1800px (300px top/bottom)
+			layouts = []PhotoLayout{
+				{X: 0, Y: 100, Width: 600, Height: 400},
+				{X: 0, Y: 600, Width: 600, Height: 400},
+				{X: 0, Y: 1100, Width: 600, Height: 400},
+				{X: 600, Y: 100, Width: 600, Height: 400},
+				{X: 600, Y: 600, Width: 600, Height: 400},
+				{X: 600, Y: 1100, Width: 600, Height: 400},
 			}
 		} else if template == "4postcard_4x6" {
 			// 1200x1800. Needs 4 boxes in 3:2 ratio.

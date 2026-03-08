@@ -103,6 +103,18 @@ func (c *LegacyDCCCamera) StopLiveView() error {
 
 // IsCameraConnected checks if DCC is running and has a camera attached.
 func (c *LegacyDCCCamera) IsCameraConnected() bool {
+	// Retry for up to 5 seconds to give the camera time to be detected
+	// This also ensures the frontend "Checking camera..." screen is visible
+	for i := 0; i < 10; i++ {
+		if c.checkConnectionSingle() {
+			return true
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return false
+}
+
+func (c *LegacyDCCCamera) checkConnectionSingle() bool {
 	resp, err := (&http.Client{Timeout: 2 * time.Second}).Get(dccBaseURL + "/ping")
 	if err != nil {
 		return false
@@ -117,8 +129,22 @@ func (c *LegacyDCCCamera) IsCameraConnected() bool {
 	if err := json.Unmarshal(body, &result); err == nil {
 		return result.Connected
 	}
-	// DCC legacy returns "OK" plain text when running
-	return resp.StatusCode == 200
+
+	// DCC legacy mode: Check if a camera is actually recognized.
+	// When no camera is connected, getting camera-specific properties like "iso"
+	// returns an error string like "Object reference not set to an instance of an object."
+	// or "Action not allowed" instead of a valid value.
+	val, status, err := c.dccGet("/?slc=get&param1=iso")
+	if err != nil || status != 200 {
+		return false
+	}
+
+	valStr := strings.TrimSpace(val)
+	if valStr == "" || strings.Contains(valStr, "Object reference") || strings.Contains(valStr, "error") || valStr == "?" {
+		return false
+	}
+
+	return true
 }
 
 // findNewestFile returns the path of the newest file in dir.

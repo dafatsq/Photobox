@@ -22,11 +22,11 @@ const PaymentScreen: React.FC = () => {
         setCameraErrorMsg('');
         try {
             const mode = await GetCameraMode();
-            if (mode === 'dslr') {
+            if (mode === 'dslr' || mode === 'legacy') {
                 const connected = await IsCameraConnected();
                 if (!connected) {
                     setCameraStatus('error');
-                    setCameraErrorMsg('Camera is not connected. Please check the camera power and USB cable, then tap Retry.');
+                    setCameraErrorMsg('Camera not detected. If using Integrated Mode, please CLOSE DigiCamControl or EOS Utility first, as they block camera access.');
                     return;
                 }
             }

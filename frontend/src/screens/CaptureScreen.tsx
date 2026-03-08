@@ -108,7 +108,7 @@ const CaptureScreen: React.FC = () => {
                         setLiveViewURL(url);
                         setReady(true);
                     } else if (!cancelled) {
-                        goToError('DSLR camera not detected. Please check the camera connection. Ensure camera is turned ON and plugged in.');
+                        goToError('DSLR camera not detected. Please check the camera connection. CLOSE DigiCamControl or EOS Utility if using Integrated Mode, as they block camera access.');
                     }
                 }
             } catch (err) {

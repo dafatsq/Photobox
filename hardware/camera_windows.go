@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	bridgePort    = 5513
-	bridgeBaseURL = "http://localhost:5513"
+	bridgePort    = 5514
+	bridgeBaseURL = "http://localhost:5514"
 	bridgeTimeout = 30 * time.Second
 )
 
@@ -81,8 +81,8 @@ func (w *WinCamera) EnsureBridge() error {
 	w.bridgeCmd = cmd
 	println("[DSLRBridge] Started with PID:", cmd.Process.Pid)
 
-	// Wait for bridge to become responsive (up to 10 seconds)
-	deadline := time.Now().Add(10 * time.Second)
+	// Wait for bridge to become responsive (up to 20 seconds due to camera retries)
+	deadline := time.Now().Add(20 * time.Second)
 	for time.Now().Before(deadline) {
 		if w.pingBridge() {
 			println("[DSLRBridge] Bridge is responsive")
@@ -321,7 +321,7 @@ func (w *WinCamera) IsCameraConnected() bool {
 		Timeout:   6 * time.Second,
 		Transport: &http.Transport{DisableKeepAlives: true},
 	} // /connect takes at least 1.5s
-	maxAttempts := 4 // We wait in chunks, so 4 attempts is enough
+	maxAttempts := 8 // Wait up to ~16 seconds for the bridge to find the camera
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		// 1. Initial ping check
@@ -355,7 +355,7 @@ func (w *WinCamera) IsCameraConnected() bool {
 		}
 
 		if attempt < maxAttempts {
-			time.Sleep(1 * time.Second)
+			time.Sleep(2 * time.Second)
 		}
 	}
 	println("[DSLRBridge] Camera not detected after all retries")

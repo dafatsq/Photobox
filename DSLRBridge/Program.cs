@@ -106,26 +106,34 @@ namespace DSLRBridge
             Log("Scanning for cameras...");
             try
             {
-                _deviceManager.ConnectToCamera();
-                Thread.Sleep(1500); // Give cameras time to initialize
-
-                if (_deviceManager.ConnectedDevices.Count > 0)
+                bool connected = false;
+                for (int i = 0; i < 5; i++)
                 {
-                    var cam = _deviceManager.SelectedCameraDevice;
-                    Log("Camera found: " + cam.DeviceName + " (" + cam.Manufacturer + ")");
+                    _deviceManager.ConnectToCamera();
+                    Thread.Sleep(2000); // Give cameras time to initialize
 
-                    // Enable capture to RAM (transfer to PC, not to card)
-                    if (cam.GetCapability(CapabilityEnum.CaptureInRam))
+                    if (_deviceManager.ConnectedDevices.Count > 0)
                     {
-                        cam.CaptureInSdRam = true;
-                        Log("CaptureInSdRam enabled");
-                    }
+                        var cam = _deviceManager.SelectedCameraDevice;
+                        Log("Camera found: " + cam.DeviceName + " (" + cam.Manufacturer + ")");
 
-                    _keepAliveTimer.Start();
+                        // Enable capture to RAM (transfer to PC, not to card)
+                        if (cam.GetCapability(CapabilityEnum.CaptureInRam))
+                        {
+                            cam.CaptureInSdRam = true;
+                            Log("CaptureInSdRam enabled");
+                        }
+
+                        _keepAliveTimer.Start();
+                        connected = true;
+                        break;
+                    }
+                    Log("No camera found on attempt " + (i + 1) + "/5, retrying...");
                 }
-                else
+                
+                if (!connected)
                 {
-                    Log("No cameras found on startup (will detect when connected)");
+                    Log("No cameras found on startup after 5 attempts (will detect when connected)");
                 }
             }
             catch (Exception ex)

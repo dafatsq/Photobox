@@ -412,25 +412,157 @@ select:focus, input:focus {
       </summary>
       <div style="margin-top: 1.5rem; cursor: default;">
         <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1.5rem;">After a session, the app uploads the photo to your R2 bucket and shows a QR code so guests can scan and download their photo. Each admin enters their own Cloudflare credentials.</p>
+        <style>
+          .info-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            cursor: help;
+            position: relative;
+            margin-left: 0.4rem;
+          }
+          .info-icon svg {
+            width: 14px;
+            height: 14px;
+          }
+          .info-tooltip {
+            visibility: hidden;
+            opacity: 0;
+            width: 340px;
+            background-color: #1e293b;
+            color: #f8fafc;
+            text-align: left;
+            border-radius: 8px;
+            padding: 1rem;
+            position: absolute;
+            z-index: 50;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: opacity 0.2s, visibility 0.2s;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            font-weight: normal;
+            text-transform: none;
+            letter-spacing: normal;
+            border: 1px solid #334155;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.8);
+          }
+          .info-tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -6px;
+            border-width: 6px;
+            border-style: solid;
+            border-color: #334155 transparent transparent transparent;
+          }
+          .info-icon:hover .info-tooltip {
+            visibility: visible;
+            opacity: 1;
+          }
+          .info-tooltip ol {
+            margin: 0.5rem 0 0 0;
+            padding-left: 1.25rem;
+          }
+          .info-tooltip li {
+            margin-bottom: 0.25rem;
+          }
+        </style>
         <div class="settings-grid">
           <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem;">
-            <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Account ID</label>
+            <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); display:flex; align-items:center;">
+              Account ID
+              <span class="info-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+                <div class="info-tooltip">
+                  <strong>How to get your Account ID:</strong>
+                  <ol>
+                    <li>Log in to your Cloudflare dashboard at dash.cloudflare.com.</li>
+                    <li>Look at the URL in your web browser's address bar.</li>
+                    <li>The URL will look like <code>https://dash.cloudflare.com/2a63bbbcc87...</code></li>
+                    <li>The long string between <code>dash.cloudflare.com/</code> and the next <code>/</code> is your <strong>Account ID</strong>.</li>
+                  </ol>
+                </div>
+              </span>
+            </label>
             <input type="text" id="r2AccountId" placeholder="e.g. abc123def456..." style="width:100%;">
           </div>
           <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem;">
-            <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Access Key ID</label>
+            <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); display:flex; align-items:center;">
+              Access Key ID
+              <span class="info-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+                <div class="info-tooltip">
+                  <strong>How to get your Access Key & Secret:</strong>
+                  <ol>
+                    <li>On the left sidebar, click <strong>R2 object storage</strong>.</li>
+                    <li>On the right side, click <strong>Manage R2 API Tokens</strong>.</li>
+                    <li>Click <strong>Create Account API token</strong>.</li>
+                    <li>Set Permissions to <strong>Admin Read & Write</strong> (or Object Read & Write).</li>
+                    <li>Scroll to the bottom and click <strong>Create API Token</strong>.</li>
+                    <li>Copy the <strong>Access Key ID</strong> shown here.</li>
+                  </ol>
+                </div>
+              </span>
+            </label>
             <input type="text" id="r2AccessKeyId" placeholder="R2 API token key ID..." style="width:100%;">
           </div>
           <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem;">
-            <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Secret Access Key</label>
+            <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); display:flex; align-items:center;">
+              Secret Access Key
+              <span class="info-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+                <div class="info-tooltip">
+                  <strong>How to get your Secret Access Key:</strong>
+                  <ol>
+                    <li>Follow the steps above to create an API token.</li>
+                    <li>Copy the <strong>Secret Access Key</strong> shown on that page.</li>
+                    <li style="color:#f87171;"><strong>WARNING:</strong> Cloudflare will only show this to you ONCE. Do not close the tab until you save it here! If you lose it, create a new token.</li>
+                  </ol>
+                </div>
+              </span>
+            </label>
             <input type="password" id="r2SecretKey" placeholder="Leave blank to keep current..." style="width:100%;">
           </div>
           <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem;">
-            <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Bucket Name</label>
+            <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); display:flex; align-items:center;">
+              Bucket Name
+              <span class="info-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+                <div class="info-tooltip">
+                  <strong>How to create a Bucket Name:</strong>
+                  <ol>
+                    <li>On the left sidebar, click <strong>R2 object storage</strong>.</li>
+                    <li>Click <strong>Create bucket</strong> on the right.</li>
+                    <li>Enter a name (e.g. <code>photobox</code>). Must be lowercase.</li>
+                    <li>Leave default settings and click <strong>Create bucket</strong>.</li>
+                    <li>Type the exact name you used here.</li>
+                  </ol>
+                </div>
+              </span>
+            </label>
             <input type="text" id="r2BucketName" placeholder="my-photobox-bucket" style="width:100%;">
           </div>
           <div class="setting-item" style="flex-direction:column; align-items:flex-start; gap:0.5rem; grid-column: 1 / -1;">
-            <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);">Public Base URL</label>
+            <label style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); display:flex; align-items:center;">
+              Public Base URL
+              <span class="info-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+                <div class="info-tooltip">
+                  <strong>How to get your Public Base URL:</strong>
+                  <ol>
+                    <li>Click into the bucket you just created.</li>
+                    <li>Go to the <strong>Settings</strong> tab.</li>
+                    <li>Under the <strong>Public Access</strong> section, click <strong>Allow Access</strong> and type <code>allow</code> to confirm.</li>
+                    <li>A green URL will appear (e.g. <code>https://pub-044dfe1...r2.dev</code>).</li>
+                    <li>Copy that URL here <strong>(do NOT include a trailing slash <code>/</code>)</strong>.</li>
+                  </ol>
+                </div>
+              </span>
+            </label>
             <input type="text" id="r2PublicBaseUrl" placeholder="https://pub-xxx.r2.dev or https://photos.yourdomain.com" style="width:100%;">
           </div>
         </div>
